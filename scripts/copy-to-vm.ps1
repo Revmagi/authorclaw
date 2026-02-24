@@ -6,9 +6,10 @@
 $ErrorActionPreference = "Stop"
 
 # ── Configuration (adjust these paths to match your setup) ──
-$AuthorClawSource = Join-Path $PSScriptRoot ".."
-$AuthorOSSource   = Join-Path (Split-Path $AuthorClawSource) "Author OS"
-$SharedFolder     = Join-Path (Split-Path $AuthorClawSource) "vm-transfer"
+$AuthorClawSource = (Resolve-Path (Join-Path $PSScriptRoot "..")).Path
+$ParentDir        = Split-Path $AuthorClawSource
+$AuthorOSSource   = Join-Path $ParentDir "Author OS"
+$SharedFolder     = Join-Path $ParentDir "vm-transfer"
 
 # Validate paths
 if (-not (Test-Path $AuthorClawSource)) {
