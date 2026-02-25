@@ -33,6 +33,10 @@ export class ResearchGate {
     return this.allowedDomains.size;
   }
 
+  getAllowedDomains(): string[] {
+    return Array.from(this.allowedDomains);
+  }
+
   isAllowed(url: string): boolean {
     try {
       const parsed = new URL(url);
