@@ -34,7 +34,9 @@ export class TTSService {
   private audioDir: string;
   private configDir: string;
   private piperAvailable: boolean | null = null;
+  private piperPath: string = 'piper'; // Resolved full path to piper binary
   private ffmpegAvailable: boolean | null = null;
+  private ffmpegPath: string = 'ffmpeg'; // Resolved full path to ffmpeg binary
   private defaultVoice = 'en_US-lessac-medium';
   private configuredVoice: string | null = null;
 
@@ -50,6 +52,21 @@ export class TTSService {
     'en_GB-jenny_dioco-medium': 'Jenny (British, warm)',
   };
 
+  // Common installation paths for Piper TTS (pip, pipx, system, snap, etc.)
+  private static readonly PIPER_SEARCH_PATHS: string[] = [
+    'piper', // Already on PATH
+    '/usr/local/bin/piper',
+    '/usr/bin/piper',
+    // pipx installs (the #1 miss — Ubuntu 24.04 forces pipx over pip)
+    `${process.env.HOME || '/root'}/.local/bin/piper`,
+    `${process.env.HOME || '/root'}/.local/share/pipx/venvs/piper-tts/bin/piper`,
+    // pip user installs
+    `${process.env.HOME || '/root'}/.local/lib/python3.12/site-packages/piper/__main__.py`,
+    `${process.env.HOME || '/root'}/.local/lib/python3.11/site-packages/piper/__main__.py`,
+    // snap / flatpak
+    '/snap/bin/piper',
+  ];
+
   constructor(workspaceDir: string) {
     this.audioDir = join(workspaceDir, 'audio');
     this.configDir = join(workspaceDir, '.config');
@@ -63,18 +80,62 @@ export class TTSService {
     // Load persisted voice preference
     await this.loadVoiceConfig();
 
-    // Check if Piper TTS is installed
-    this.piperAvailable = await this.checkCommand('piper --help');
+    // Find Piper TTS — search common installation paths
+    this.piperPath = await this.findBinary(TTSService.PIPER_SEARCH_PATHS, '--help');
+    this.piperAvailable = this.piperPath !== '';
 
-    // Check if ffmpeg is available (for OGG conversion)
-    this.ffmpegAvailable = await this.checkCommand('ffmpeg -version');
+    // Find ffmpeg — search common paths
+    this.ffmpegPath = await this.findBinary(['ffmpeg', '/usr/bin/ffmpeg', '/usr/local/bin/ffmpeg'], '-version');
+    this.ffmpegAvailable = this.ffmpegPath !== '';
 
     if (this.piperAvailable) {
       const voiceName = this.configuredVoice || this.defaultVoice;
-      console.log(`  🔊 TTS: Piper TTS available (voice: ${voiceName})`);
+      console.log(`  🔊 TTS: Piper TTS available at ${this.piperPath} (voice: ${voiceName})`);
     } else {
-      console.log('  🔇 TTS: Piper not installed (install with: pip3 install piper-tts)');
+      console.log('  🔇 TTS: Piper not found. Searched:');
+      console.log('     ' + TTSService.PIPER_SEARCH_PATHS.join(', '));
+      console.log('     Install with: pipx install piper-tts');
     }
+    if (this.ffmpegAvailable) {
+      console.log(`  🎵 FFmpeg: available at ${this.ffmpegPath}`);
+    }
+  }
+
+  /**
+   * Search a list of candidate paths for a binary.
+   * Returns the first working path, or '' if none found.
+   */
+  private async findBinary(candidates: string[], testArg: string): Promise<string> {
+    for (const candidate of candidates) {
+      // Skip __main__.py style paths — need python invocation
+      if (candidate.endsWith('.py')) {
+        try {
+          await execAsync(`python3 "${candidate}" ${testArg}`, { timeout: 10000 });
+          return `python3 "${candidate}"`;
+        } catch { continue; }
+      }
+      // Check if the file exists on disk first (fast check for absolute paths)
+      if (candidate.startsWith('/') || candidate.startsWith(process.env.HOME || '')) {
+        if (!existsSync(candidate)) continue;
+      }
+      // Try running it
+      try {
+        await execAsync(`"${candidate}" ${testArg}`, { timeout: 10000 });
+        return candidate;
+      } catch { continue; }
+    }
+    // Last resort: try `which` / `command -v` (catches anything on extended PATH)
+    try {
+      const { stdout } = await execAsync(`which ${candidates[0]} 2>/dev/null || command -v ${candidates[0]} 2>/dev/null`, { timeout: 5000 });
+      const found = stdout.trim();
+      if (found) {
+        try {
+          await execAsync(`"${found}" ${testArg}`, { timeout: 10000 });
+          return found;
+        } catch { /* found but won't run */ }
+      }
+    } catch { /* which/command not available */ }
+    return '';
   }
 
   /** Load persisted voice config from workspace/.config/tts.json */
@@ -102,15 +163,6 @@ export class TTSService {
     return this.configuredVoice || this.defaultVoice;
   }
 
-  private async checkCommand(cmd: string): Promise<boolean> {
-    try {
-      await execAsync(cmd, { timeout: 10000 });
-      return true;
-    } catch {
-      return false;
-    }
-  }
-
   isAvailable(): boolean {
     return this.piperAvailable === true;
   }
@@ -126,7 +178,7 @@ export class TTSService {
     if (!this.piperAvailable) {
       return {
         success: false,
-        error: 'TTS not available. Install Piper TTS: pip3 install piper-tts',
+        error: 'TTS not available. Install Piper TTS: pipx install piper-tts (or pip3 install piper-tts)',
       };
     }
 
@@ -144,13 +196,13 @@ export class TTSService {
         .replace(/'/g, "'\\''")
         .substring(0, 5000); // Limit to ~5000 chars (~5 min audio)
 
-      // Generate WAV with Piper
-      const piperCmd = `echo '${sanitized}' | piper --model ${voice} --output_file "${wavFile}"`;
+      // Generate WAV with Piper (using resolved full path)
+      const piperCmd = `echo '${sanitized}' | "${this.piperPath}" --model ${voice} --output_file "${wavFile}"`;
       await execAsync(piperCmd, { timeout: 120000 }); // 2 min timeout
 
       // Convert to OGG if requested (for Telegram voice messages)
       if (format === 'ogg' && this.ffmpegAvailable) {
-        const ffmpegCmd = `ffmpeg -y -i "${wavFile}" -c:a libopus -b:a 64k "${outputFile}"`;
+        const ffmpegCmd = `"${this.ffmpegPath}" -y -i "${wavFile}" -c:a libopus -b:a 64k "${outputFile}"`;
         await execAsync(ffmpegCmd, { timeout: 60000 });
         // Clean up WAV
         try { await unlink(wavFile); } catch { /* ok */ }
