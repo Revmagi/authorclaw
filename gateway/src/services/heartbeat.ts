@@ -541,6 +541,29 @@ export class HeartbeatService {
     return { duration, wordsWritten };
   }
 
+  /** Structured stats for dashboard Morning Briefing */
+  getStats(): {
+    todayWords: number; dailyWordGoal: number; streak: number;
+    goalPercent: number; enableReminders: boolean;
+    sessionMinutes: number; sessionWords: number;
+  } {
+    const goalPercent = Math.min(100, Math.round((this.todayWords / this.config.dailyWordGoal) * 100));
+    let sessionMinutes = 0, sessionWords = 0;
+    if (this.currentSession) {
+      sessionMinutes = Math.round((Date.now() - this.currentSession.startTime.getTime()) / 60000);
+      sessionWords = this.currentSession.wordCountCurrent - this.currentSession.wordCountStart;
+    }
+    return {
+      todayWords: this.todayWords,
+      dailyWordGoal: this.config.dailyWordGoal,
+      streak: this.streak,
+      goalPercent,
+      enableReminders: this.config.enableReminders,
+      sessionMinutes,
+      sessionWords,
+    };
+  }
+
   getContext(): string {
     const parts: string[] = [];
 

@@ -220,9 +220,9 @@
 <div class="tabs" id="tabBar">
   <div class="tab active" data-tab="home">&#127968; Home</div>
   <div class="tab" data-tab="goals">&#127919; Goals</div>
+  <div class="tab" data-tab="project">&#128214; Project Config</div>
   <div class="tab" data-tab="progress">&#128203; Live Progress</div>
   <div class="tab" data-tab="settings">&#9881;&#65039; Settings</div>
-  <div class="tab" data-tab="project">&#128214; Project Config</div>
 </div>
 
 <div class="content">
@@ -1369,6 +1369,11 @@ function loadGoals() {
       }
 
       if (g.status === 'active') {
+        var autoBtn = document.createElement('button');
+        autoBtn.className = 'success'; autoBtn.textContent = '▶ Auto-Execute All';
+        autoBtn.addEventListener('click', function() { autoExecuteGoal(g.id); });
+        actions.appendChild(autoBtn);
+
         var execBtn = document.createElement('button');
         execBtn.textContent = 'Execute Next Step';
         execBtn.addEventListener('click', function() { executeGoalStep(g.id); });
@@ -1414,6 +1419,30 @@ function startGoal(id) {
     showToast('Goal started! Click "Execute Next Step" to proceed.', 'success');
     loadGoals();
   }).catch(function(e) { showToast('Failed: ' + e.message, 'error'); });
+}
+
+function autoExecuteGoal(id) {
+  showToast('Auto-executing all steps... this may take a while.', 'info');
+  // Use a longer timeout for auto-execute (5 min)
+  fetch('/api/goals/' + id + '/auto-execute', { method: 'POST', headers: { 'Content-Type': 'application/json' } })
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+      if (data.success) {
+        var completed = (data.results || []).filter(function(r) { return r.success; }).length;
+        var failed = (data.results || []).filter(function(r) { return !r.success; }).length;
+        showToast('Auto-execute done! ' + completed + ' steps completed' + (failed > 0 ? ', ' + failed + ' failed' : '') + '.', completed > 0 ? 'success' : 'error');
+      } else {
+        showToast('Auto-execute failed: ' + (data.error || 'Unknown'), 'error');
+      }
+      loadGoals();
+    })
+    .catch(function(e) {
+      showToast('Auto-execute error: ' + e.message, 'error');
+      loadGoals();
+    });
+  // Poll for progress while auto-executing
+  var pollId = setInterval(function() { loadGoals(); }, 8000);
+  setTimeout(function() { clearInterval(pollId); }, 300000);
 }
 
 function executeGoalStep(id) {
@@ -1877,10 +1906,21 @@ function loadHomeBriefing() {
     document.getElementById('briefSummary').innerHTML = parts.join(' ');
   }).catch(function() {});
 
-  // Fetch heartbeat for streak
+  // Fetch heartbeat for streak + words today
   api('GET', '/api/status').then(function(data) {
-    if (data.heartbeat && data.heartbeat.streak !== undefined) {
-      document.getElementById('briefStreak').textContent = data.heartbeat.streak;
+    if (data.heartbeat) {
+      if (data.heartbeat.streak !== undefined) {
+        document.getElementById('briefStreak').textContent = data.heartbeat.streak;
+      }
+      // Show today's word count from heartbeat
+      if (data.heartbeat.todayWords !== undefined) {
+        var wordsEl = document.getElementById('briefWords');
+        var current = parseInt(wordsEl.textContent.replace(/,/g, '')) || 0;
+        var heartbeatWords = data.heartbeat.todayWords || 0;
+        if (heartbeatWords > current) {
+          wordsEl.textContent = heartbeatWords.toLocaleString();
+        }
+      }
     }
   }).catch(function() {});
 }

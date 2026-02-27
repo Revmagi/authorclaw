@@ -55,7 +55,7 @@ export function createAPIRoutes(app: Application, gateway: any, rootDir?: string
         catalog: services.skills.getSkillCatalog(),
         byCategory: services.skills.getSkillsByCategory(),
       },
-      heartbeat: services.heartbeat.getContext(),
+      heartbeat: services.heartbeat.getStats(),
       autonomous: services.heartbeat.getAutonomousStatus(),
       permissions: services.permissions.preset,
       cache: services.aiRouter.getCacheStats(),
@@ -559,6 +559,9 @@ export function createAPIRoutes(app: Application, gateway: any, rootDir?: string
       const currentGoal = goalsEngine.getGoal(req.params.id);
       if (!currentGoal) break;
 
+      // Check if goal was paused externally (via /stop or dashboard)
+      if (currentGoal.status === 'paused' || currentGoal.status === 'completed') break;
+
       const activeStep = currentGoal.steps.find((s: any) => s.status === 'active');
       if (!activeStep) break;
 
@@ -682,48 +685,147 @@ export function createAPIRoutes(app: Application, gateway: any, rootDir?: string
     res.json({ tools: services.authorOS.getStatus() });
   });
 
-  // ── Author OS: Format Factory execution ──
+  // ── Native Export: Markdown → Word/HTML (no external tools needed) ──
   app.post('/api/author-os/format', async (req: Request, res: Response) => {
-    if (!services.authorOS) {
-      return res.status(503).json({ error: 'Author OS not available' });
-    }
-
     const { inputFile, title, author, formats, outputDir } = req.body;
-    if (!inputFile || !title) {
-      return res.status(400).json({ error: 'inputFile and title required' });
+    if (!inputFile) {
+      return res.status(400).json({ error: 'inputFile required' });
     }
 
-    const { join: j, resolve: r } = await import('path');
+    const { join: j, resolve: r, basename: bn } = await import('path');
     const { existsSync: ex } = await import('fs');
+    const { readFile: rf, writeFile: wf, mkdir: mkd } = await import('fs/promises');
 
     const workspaceDir = j(baseDir, 'workspace');
     const conductorDir = j(baseDir, 'conductor-output');
 
-    // Search for the file in workspace first, then conductor-output
-    let resolvedInput = r(workspaceDir, inputFile);
-    if (!ex(resolvedInput)) {
-      // Try conductor-output directory
-      resolvedInput = r(conductorDir, inputFile);
-    }
-    if (!ex(resolvedInput)) {
-      // Try as absolute path from baseDir
-      resolvedInput = r(baseDir, inputFile);
-    }
-    const resolvedOutput = r(workspaceDir, outputDir || 'exports');
+    // Search for the file in workspace → projects → conductor-output → baseDir
+    const searchPaths = [
+      r(workspaceDir, inputFile),
+      r(workspaceDir, 'projects', inputFile),
+      r(conductorDir, inputFile),
+      r(baseDir, inputFile),
+    ];
+    // Also search recursively in workspace/projects/*/
+    try {
+      const { readdirSync } = await import('fs');
+      const projectsDir = j(workspaceDir, 'projects');
+      if (ex(projectsDir)) {
+        for (const sub of readdirSync(projectsDir, { withFileTypes: true })) {
+          if (sub.isDirectory()) {
+            searchPaths.push(r(projectsDir, sub.name, inputFile));
+          }
+        }
+      }
+    } catch { /* ok */ }
 
-    // Security: must be within workspace OR conductor-output
+    let resolvedInput = '';
+    for (const candidate of searchPaths) {
+      if (ex(candidate)) { resolvedInput = candidate; break; }
+    }
+
+    if (!resolvedInput) {
+      return res.status(404).json({ error: 'Input file not found: ' + inputFile + '. Use /files to see available files.' });
+    }
+
+    // Security: must be within project
     const resolvedBase = r(baseDir);
     if (!resolvedInput.startsWith(resolvedBase)) {
       return res.status(403).json({ error: 'Input file must be within the AuthorClaw directory' });
     }
-    if (!ex(resolvedInput)) {
-      return res.status(404).json({ error: 'Input file not found: ' + inputFile + '. Use /files to see available files.' });
-    }
 
-    const result = await services.authorOS.runFormatFactory(
-      resolvedInput, title, author || 'Unknown Author', formats || ['all'], resolvedOutput
-    );
-    res.json(result);
+    const exportDir = r(workspaceDir, outputDir || 'exports');
+    await mkd(exportDir, { recursive: true });
+
+    const content = await rf(resolvedInput, 'utf-8');
+    const docTitle = title || bn(resolvedInput, '.md');
+    const docAuthor = author || 'AuthorClaw';
+    const requestedFormats = formats || ['docx'];
+    const results: string[] = [];
+
+    try {
+      // ── Word Export (native, using docx npm package) ──
+      if (requestedFormats.includes('docx') || requestedFormats.includes('all')) {
+        const { Document, Packer, Paragraph, TextRun, HeadingLevel } = await import('docx');
+        const paragraphs: any[] = [];
+
+        // Title page
+        paragraphs.push(new Paragraph({ children: [new TextRun({ text: docTitle, bold: true, size: 48 })], spacing: { after: 400 } }));
+        paragraphs.push(new Paragraph({ children: [new TextRun({ text: 'by ' + docAuthor, italics: true, size: 24 })], spacing: { after: 800 } }));
+        paragraphs.push(new Paragraph({ children: [new TextRun({ text: '' })], spacing: { after: 400 } }));
+
+        // Parse markdown content into paragraphs
+        const lines = content.split('\n');
+        for (const line of lines) {
+          if (line.startsWith('# ')) {
+            paragraphs.push(new Paragraph({ text: line.replace(/^# /, ''), heading: HeadingLevel.HEADING_1 }));
+          } else if (line.startsWith('## ')) {
+            paragraphs.push(new Paragraph({ text: line.replace(/^## /, ''), heading: HeadingLevel.HEADING_2 }));
+          } else if (line.startsWith('### ')) {
+            paragraphs.push(new Paragraph({ text: line.replace(/^### /, ''), heading: HeadingLevel.HEADING_3 }));
+          } else if (line.trim() === '') {
+            paragraphs.push(new Paragraph({ children: [] }));
+          } else {
+            // Handle basic bold/italic markdown
+            const children: any[] = [];
+            const parts = line.split(/(\*\*.*?\*\*|\*.*?\*)/);
+            for (const part of parts) {
+              if (part.startsWith('**') && part.endsWith('**')) {
+                children.push(new TextRun({ text: part.slice(2, -2), bold: true }));
+              } else if (part.startsWith('*') && part.endsWith('*')) {
+                children.push(new TextRun({ text: part.slice(1, -1), italics: true }));
+              } else {
+                children.push(new TextRun({ text: part }));
+              }
+            }
+            paragraphs.push(new Paragraph({ children }));
+          }
+        }
+
+        const doc = new Document({
+          creator: docAuthor,
+          title: docTitle,
+          sections: [{ children: paragraphs }],
+        });
+
+        const buffer = await Packer.toBuffer(doc);
+        const outPath = j(exportDir, docTitle.replace(/[^a-zA-Z0-9\s-]/g, '').replace(/\s+/g, '-') + '.docx');
+        await wf(outPath, buffer);
+        results.push(outPath);
+      }
+
+      // ── HTML Export (native) ──
+      if (requestedFormats.includes('html') || requestedFormats.includes('all')) {
+        let html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>${docTitle}</title>`;
+        html += `<style>body{font-family:Georgia,serif;max-width:700px;margin:40px auto;padding:0 20px;line-height:1.8;color:#333;}h1{text-align:center;border-bottom:2px solid #333;padding-bottom:10px;}h2{margin-top:2em;border-bottom:1px solid #ccc;}</style></head><body>`;
+        html += `<h1>${docTitle}</h1><p style="text-align:center;"><em>by ${docAuthor}</em></p><hr>`;
+        // Basic markdown → HTML
+        const htmlContent = content
+          .replace(/^### (.*$)/gm, '<h3>$1</h3>')
+          .replace(/^## (.*$)/gm, '<h2>$1</h2>')
+          .replace(/^# (.*$)/gm, '<h1>$1</h1>')
+          .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+          .replace(/\*(.*?)\*/g, '<em>$1</em>')
+          .replace(/\n\n/g, '</p><p>')
+          .replace(/\n/g, '<br>');
+        html += `<p>${htmlContent}</p></body></html>`;
+        const outPath = j(exportDir, docTitle.replace(/[^a-zA-Z0-9\s-]/g, '').replace(/\s+/g, '-') + '.html');
+        await wf(outPath, html);
+        results.push(outPath);
+      }
+
+      // ── Plain Text Export ──
+      if (requestedFormats.includes('txt') || requestedFormats.includes('all')) {
+        const plain = content.replace(/^#{1,3}\s/gm, '').replace(/\*\*(.*?)\*\*/g, '$1').replace(/\*(.*?)\*/g, '$1');
+        const outPath = j(exportDir, docTitle.replace(/[^a-zA-Z0-9\s-]/g, '').replace(/\s+/g, '-') + '.txt');
+        await wf(outPath, `${docTitle}\nby ${docAuthor}\n\n${plain}`);
+        results.push(outPath);
+      }
+
+      res.json({ success: true, files: results, message: `Exported ${results.length} file(s) to ${exportDir}` });
+    } catch (error) {
+      res.status(500).json({ success: false, error: 'Export failed: ' + String(error) });
+    }
   });
 
   // ── Tool Ingestion: AI reads code, generates SKILL.md ──
@@ -880,10 +982,22 @@ ${sourceCode.substring(0, 15000)}
     res.json({ ...conductorState, stopRequested: conductorStopRequested });
   });
 
-  // Dashboard sends stop signal
+  // Dashboard sends stop signal — also kill the process if running
   app.post('/api/conductor/stop', (_req: Request, res: Response) => {
     conductorStopRequested = true;
-    res.json({ success: true, message: 'Stop signal sent to conductor' });
+    // Actually kill the conductor process (don't just set a flag)
+    if (conductorProcess && conductorProcess.exitCode === null) {
+      try {
+        conductorProcess.kill('SIGTERM');
+        setTimeout(() => {
+          // Force kill if it didn't stop within 5 seconds
+          if (conductorProcess && conductorProcess.exitCode === null) {
+            conductorProcess.kill('SIGKILL');
+          }
+        }, 5000);
+      } catch { /* process already dead */ }
+    }
+    res.json({ success: true, message: 'Conductor stopped' });
   });
 
   // Reset stop signal (when conductor starts)

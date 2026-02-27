@@ -801,7 +801,7 @@ Description: ${description}`;
     const lower = description.toLowerCase();
 
     // Planning signals
-    if (lower.match(/plan|outline|structure|plot|brainstorm|concept|idea|story map|beat sheet/)) {
+    if (lower.match(/plan|outline|structure|plot|brainstorm|concept|idea|story map|beat sheet|premise|logline|what.?if/)) {
       return 'planning';
     }
 

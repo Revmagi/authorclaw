@@ -371,7 +371,7 @@ export class TelegramBridge {
       return;
     }
 
-    // ── /export — Export manuscript files to Word/EPUB/PDF via Format Factory Pro ──
+    // ── /export — Export manuscript files to Word/HTML/TXT (built-in, no external tools needed) ──
     if (text.startsWith('/export')) {
       const args = text.replace(/^\/export\s*/, '').trim();
 
@@ -379,34 +379,22 @@ export class TelegramBridge {
       if (!args) {
         await this.sendMessage(chatId,
           `📦 *Export your manuscript:*\n\n` +
-          `/export [file] — Export to all formats\n` +
-          `/export [file] docx — Word only\n` +
-          `/export [file] epub — EPUB only\n` +
-          `/export [file] pdf — PDF only\n\n` +
+          `/export [file] — Export to Word (.docx)\n` +
+          `/export [file] html — Export as HTML\n` +
+          `/export [file] txt — Export as plain text\n` +
+          `/export [file] all — All formats\n\n` +
           `Use /files first, then:\n` +
-          `/export 1 — Export file #1\n` +
-          `/export 3 docx — Export file #3 as Word\n\n` +
-          `Supported: docx, epub, pdf, html, rtf`);
+          `/export 1 — Export file #1 to Word\n` +
+          `/export 3 html — Export file #3 as HTML\n\n` +
+          `Supported: docx, html, txt`);
         return;
       }
 
       try {
-        // Check if Format Factory Pro is available
-        const statusRes = await fetch('http://localhost:3847/api/author-os/status');
-        const statusData = await statusRes.json() as any;
-        const ffAvailable = statusData.tools?.some((t: any) =>
-          (t.tool === 'format-factory' || t.tool === 'creator-asset-suite') && t.available
-        );
-
-        if (!ffAvailable) {
-          await this.sendMessage(chatId, `📦 Format Factory Pro is not installed on this server.\n\nInstall Author OS tools first, or use /files and download .md files directly.`);
-          return;
-        }
-
         // Parse: /export [file_or_number] [format]
         const parts = args.split(/\s+/);
         let filename = parts[0];
-        const format = parts[1]?.toLowerCase() || 'all';
+        const format = parts[1]?.toLowerCase() || 'docx';
 
         // Check if it's a number from the file picker
         const num = parseInt(filename, 10);
@@ -434,15 +422,12 @@ export class TelegramBridge {
 
         if (exportData.error) {
           await this.sendMessage(chatId, `❌ ${exportData.error}`);
-        } else if (exportData.exitCode === 0) {
+        } else if (exportData.success) {
+          const fileList = (exportData.files || []).map((f: string) => `  📄 ${f.split('/').pop()}`).join('\n');
           await this.sendMessage(chatId,
-            `✅ Export complete!\n\n` +
-            `📄 Output: workspace/exports/\n` +
-            `Use /files exports to see exported files.\n\n` +
-            (exportData.stdout ? `Output:\n${exportData.stdout.substring(0, 500)}` : ''));
+            `✅ Export complete!\n\n${fileList}\n\n📁 Saved to: workspace/exports/\nUse /files exports to see them.`);
         } else {
-          await this.sendMessage(chatId,
-            `⚠️ Export finished with issues:\n${exportData.stderr?.substring(0, 500) || exportData.stdout?.substring(0, 500) || 'Unknown error'}`);
+          await this.sendMessage(chatId, `⚠️ Export failed: ${exportData.error || 'Unknown error'}`);
         }
       } catch (e) {
         await this.sendMessage(chatId, `❌ Export error: ${String(e)}`);
@@ -604,8 +589,12 @@ export class TelegramBridge {
 
       // Pause active goal (if requested or no specific target)
       if (activeGoal && (arg === '' || arg === 'goal' || arg === 'goals')) {
-        await this.sendMessage(chatId, `⏸ Pausing "${activeGoal.title}"...`);
         this.pauseRequested = true;
+        // Actually pause in the goal engine via API (not just a bridge flag)
+        try {
+          await fetch(`http://localhost:3847/api/goals/${activeGoal.id}/pause`, { method: 'POST' });
+        } catch { /* silent */ }
+        await this.sendMessage(chatId, `⏸ Paused "${activeGoal.title}". Say "continue" to resume.`);
         stoppedSomething = true;
       }
 
@@ -644,20 +633,16 @@ export class TelegramBridge {
       return;
     }
 
-    // ── Regular message — send to AI with "be brief" instructions ──
+    // ── Regular message — conversational chat via AI ──
     if (this.messageHandler) {
+      // Prepend brevity instruction so AI keeps it short for Telegram
+      const telegramPrompt = `[Telegram chat — keep your response SHORT and conversational, like texting a friend. 2-4 sentences max. No headers, no bullet lists, no essays. Only write long responses if the user explicitly asks for a full chapter, story, or detailed breakdown.]\n\n${text}`;
       await this.messageHandler(
-        text,
+        telegramPrompt,
         `telegram:${chatId}`,
         async (response) => {
-          // Hard cap for regular Telegram messages (2000 chars) — prevents chapter dumps
-          const MAX_TELEGRAM_RESPONSE = 2000;
-          if (response.length > MAX_TELEGRAM_RESPONSE) {
-            const truncated = response.substring(0, MAX_TELEGRAM_RESPONSE).replace(/\s+\S*$/, '');
-            await this.sendMessage(chatId, truncated + '\n\n✂️ _Truncated. See full response in the dashboard._');
-          } else {
-            await this.sendMessage(chatId, response);
-          }
+          // sendMessage auto-splits at 4096 chars (Telegram's real limit)
+          await this.sendMessage(chatId, response);
         }
       );
     }

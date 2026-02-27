@@ -36,7 +36,6 @@ const TOOL_DIRS: Record<string, string[]> = {
   'book-bible':          ['book-bible', 'Book Bible Engine'],
   'manuscript-autopsy':  ['manuscript-autopsy', 'Manuscript Autopsy'],
   'ai-author-library':   ['ai-author-library', 'AI Author Library'],
-  'creator-asset-suite': ['creator-asset-suite', 'Creator Asset Suite'],
   'format-factory':      ['format-factory', 'Format Factory Pro'],
 };
 

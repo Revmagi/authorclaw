@@ -19,3 +19,6 @@ skills/premium/*/
 
 # Author OS tools (mounted at runtime)
 author-os/
+
+# Internal testing docs (not for repo)
+scripts/FULL-TEST-CHECKLIST.md
