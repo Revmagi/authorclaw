@@ -714,10 +714,65 @@ export class ProjectEngine {
   private aiSelectProvider: AISelectProviderFunc | null = null;
   private coreLessonsCache: string | null = null;
   private coreLessonsCacheTime = 0;
+  private stateFilePath: string;
+  private saveDebounceTimer: ReturnType<typeof setTimeout> | null = null;
 
   constructor(authorOS?: AuthorOSService, rootDir?: string) {
     this.authorOS = authorOS || null;
     this.rootDir = rootDir || process.cwd();
+    this.stateFilePath = join(this.rootDir, 'workspace', '.config', 'projects-state.json');
+    this.loadState();  // Restore projects from disk on startup
+  }
+
+  /**
+   * Persist all project state to disk (debounced — max once per second).
+   * Non-fatal: if save fails, projects continue to work in-memory.
+   */
+  private persistState(): void {
+    if (this.saveDebounceTimer) clearTimeout(this.saveDebounceTimer);
+    this.saveDebounceTimer = setTimeout(async () => {
+      try {
+        const { mkdir } = await import('fs/promises');
+        const { dirname } = await import('path');
+        await mkdir(dirname(this.stateFilePath), { recursive: true });
+        const state = {
+          nextId: this.nextId,
+          projects: Array.from(this.projects.values()).map(p => ({
+            ...p,
+            // Strip large step results to save space — they're already saved as individual files
+            steps: p.steps.map(s => ({
+              ...s,
+              result: s.result ? s.result.substring(0, 500) + (s.result.length > 500 ? '\n\n[... truncated for state file — full output in project files ...]' : '') : undefined,
+            })),
+          })),
+        };
+        const { writeFile: wf } = await import('fs/promises');
+        await wf(this.stateFilePath, JSON.stringify(state, null, 2), 'utf-8');
+      } catch (err) {
+        console.error('  ⚠ Failed to persist project state:', err);
+      }
+    }, 1000);
+  }
+
+  /**
+   * Load project state from disk on startup.
+   */
+  private loadState(): void {
+    try {
+      if (!existsSync(this.stateFilePath)) return;
+      const { readFileSync } = require('fs');
+      const raw = readFileSync(this.stateFilePath, 'utf-8');
+      const state = JSON.parse(raw);
+      if (state.nextId) this.nextId = state.nextId;
+      if (Array.isArray(state.projects)) {
+        for (const p of state.projects) {
+          this.projects.set(p.id, p);
+        }
+        console.log(`  ✓ Restored ${state.projects.length} projects from disk`);
+      }
+    } catch (err) {
+      console.error('  ⚠ Failed to load project state:', err);
+    }
   }
 
   /**
@@ -893,6 +948,7 @@ export class ProjectEngine {
     };
 
     this.projects.set(id, project);
+    this.persistState();
     console.log(`  ✓ Novel pipeline created: "${title}" — ${steps.length} steps, ${chapters} chapters, ~${(chapters * wordsPerChapter).toLocaleString()} words target`);
     return project;
   }
@@ -1020,6 +1076,7 @@ Description: ${description}`;
         };
 
         this.projects.set(id, project);
+        this.persistState();
         console.log(`  \u2713 AI planned ${steps.length} steps for "${title}" (via ${result.provider})`);
         return project;
       }
@@ -1119,6 +1176,7 @@ Description: ${description}`;
     };
 
     this.projects.set(id, project);
+    this.persistState();
     return project;
   }
 
@@ -1195,6 +1253,7 @@ Description: ${description}`;
       project.status = 'completed';
       project.completedAt = new Date().toISOString();
     }
+    this.persistState();
     return null;
   }
 
@@ -1212,6 +1271,7 @@ Description: ${description}`;
     }
 
     project.updatedAt = new Date().toISOString();
+    this.persistState();
   }
 
   /**
@@ -1235,11 +1295,13 @@ Description: ${description}`;
     const next = project.steps.find(s => s.status === 'pending');
     if (next) {
       next.status = 'active';
+      this.persistState();
       return next;
     }
 
     project.status = 'completed';
     project.completedAt = new Date().toISOString();
+    this.persistState();
     return null;
   }
 
@@ -1256,13 +1318,16 @@ Description: ${description}`;
     project.steps.forEach(s => {
       if (s.status === 'active') s.status = 'pending';
     });
+    this.persistState();
   }
 
   /**
    * Delete a project
    */
   deleteProject(id: string): boolean {
-    return this.projects.delete(id);
+    const result = this.projects.delete(id);
+    if (result) this.persistState();
+    return result;
   }
 
   /**
