@@ -1,16 +1,16 @@
 # AuthorClaw
 
-**The Autonomous AI Writing Agent — An OpenClaw Fork Built for Authors**
+**The Autonomous AI Writing Agent — Built for Authors**
 
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![Node](https://img.shields.io/badge/node-%3E%3D22.0.0-brightgreen.svg)](https://nodejs.org)
 [![Security](https://img.shields.io/badge/security-hardened-green.svg)](#security)
 
-AuthorClaw is a security-hardened AI agent purpose-built for fiction and nonfiction authors. Yes, it can write entire books — but that's just the beginning.
+AuthorClaw is a security-hardened AI agent purpose-built for fiction and nonfiction authors. It doesn't just write — it runs the entire book production pipeline autonomously, from first idea to KDP-ready manuscript.
 
-**AuthorClaw automates the boring stuff so you can focus on the creative stuff.** It handles book research, marketing competition analysis, file management, beta reading, copy editing, revision assistance, book bible building, story consistency checking, query letter drafting, literary agent research, ad copy generation, email list strategy, and more — all autonomously.
+**Give it an idea and a pen name. It plans, writes, revises, formats, and launches.** Pipeline mode chains 6 production phases automatically. Author personas manage multiple pen names with distinct voices. Deep revision runs 21 editing passes. Export produces professional DOCX and EPUB ready for self-publishing.
 
-Tell it what you want. It figures out the steps, picks the right skills and tools, and executes.
+Tell it what you want. It figures out the steps, picks the right skills, and executes.
 
 > **"It's not just a writing tool. It's a writing partner, research assistant, editor, and marketing team rolled into one."**
 
@@ -18,17 +18,17 @@ Tell it what you want. It figures out the steps, picks the right skills and tool
 
 ## What Can It Do?
 
-- **Write** — Draft scenes, chapters, and full manuscripts in your voice
+- **Pipeline** — Turn one idea + one pen name into a finished book across 6 automated phases
+- **Write** — Draft scenes, chapters, and full manuscripts in your persona's voice
+- **Revise** — 21-step deep revision: 3 passes (structural → scene-level → line-level) + AI beta readers
+- **Plan** — 6 project templates: Book Planning, Book Bible, Book Production, Deep Revision, Format & Export, Book Launch
+- **Personas** — Manage multiple pen names with distinct genres, voices, style markers, and bios
 - **Research** — Deep dives into genres, markets, historical periods, craft techniques
-- **Revise** — Structural editing, pacing analysis, style consistency checks
-- **Plan** — Outlines, beat sheets, series bibles, character arcs, world-building
-- **Beta Read** — First-reader feedback with specific, actionable notes
-- **Market** — Blurbs, ad copy, email sequences, social media content
-- **Analyze** — Voice profiling (47 markers), pacing heatmaps, tension mapping
-- **Format** — Export manuscripts to agent-ready DOCX, KDP PDF, EPUB, Markdown
-- **Manage** — Track projects, word counts, deadlines
+- **Beta Read** — AI beta reader panel (romance super-reader, harsh critic, casual reader)
+- **Market** — Blurbs, ad copy, Amazon descriptions, keywords, social media launch posts
+- **Format** — KDP-ready DOCX (trim sizes, front/back matter) and valid EPUB3 export
+- **Manage** — Track projects, pipelines, word counts across pen names
 - **Listen** — Neural TTS voice engine with 8 author-optimized presets — hear your writing read aloud
-- **Ingest Tools** — Read source code of any tool and create a new skill from it
 
 ---
 
@@ -36,24 +36,22 @@ Tell it what you want. It figures out the steps, picks the right skills and tool
 
 1. **You say what you want** — via Telegram, dashboard, or API
 2. **AuthorClaw plans the steps** — AI dynamically decomposes your task into executable steps
-3. **Skills are auto-selected** — 39 writing skills get injected into each step's context
+3. **Skills are auto-selected** — 19 focused writing skills get injected into each step's context
 4. **Work happens autonomously** — each step runs through the AI, output saved to files
 5. **Everything is logged** — universal activity feed tracks all agent actions in real-time
 
 ```
-User: "/project write a full tech-thriller about rogue AI in aviation"
+User: "/novel a small-town romance under pen name Lily Hart"
 
-AuthorClaw: "Planning... 12 steps identified"
-  Step 1: Develop premise and logline        ✅ (~800 words)
-  Step 2: Create character profiles          ✅ (~2,400 words)
-  Step 3: Build world and settings           ✅ (~1,800 words)
-  Step 4: Create timeline                    ✅ (~1,200 words)
-  Step 5: Outline all chapters               ✅ (~3,500 words)
-  Step 6: Write Chapter 1                    ✅ (~3,200 words)
-  ...
-  Step 12: Final assembly + DOCX export      ✅
+AuthorClaw: "Pipeline created — 6 phases, 48 steps total"
+  Phase 1: Book Planning    (6 steps)  — market analysis, premise, characters, outline, synopsis
+  Phase 2: Book Bible       (5 steps)  — world-building, character bible, continuity, themes, style
+  Phase 3: Book Production  (20 steps) — write + self-review per chapter
+  Phase 4: Deep Revision    (21 steps) — 3-pass editing + AI beta readers
+  Phase 5: Format & Export  (4 steps)  — front matter, back matter, DOCX, EPUB
+  Phase 6: Book Launch      (6 steps)  — blurb, Amazon description, keywords, ad copy, social posts
 
-  "All 12 steps complete! Files saved to workspace/projects/"
+  "Phase 1 started. Persona 'Lily Hart' context injected."
 ```
 
 ---
@@ -70,11 +68,10 @@ npm install
 npx tsx gateway/src/index.ts
 
 # 3. Open dashboard: http://localhost:3847
-#    Home tab → follow the welcome banner
-#    Settings tab → paste your Gemini API key → Save
+#    Settings (sidebar) → paste your Gemini API key → Save
 #    (Free tier — the whole book costs $0)
 
-# 4. Home tab chat → "Write me a thriller about rogue AI" → Send
+# 4. Home → chat: "Write me a thriller about rogue AI" → Send
 #    OR send /project to your Telegram bot
 ```
 
@@ -89,7 +86,7 @@ See [QUICKSTART.md](QUICKSTART.md) for the full setup guide.
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│                    AUTHORCLAW v3 ARCHITECTURE                │
+│                    AUTHORCLAW v4 ARCHITECTURE                │
 │                                                             │
 │  ┌───────────┐   ┌─────────────────┐   ┌────────────────┐  │
 │  │ Channels  │   │    Gateway       │   │  AI Router     │  │
@@ -101,12 +98,12 @@ See [QUICKSTART.md](QUICKSTART.md) for the full setup guide.
 │  └───────────┘   └─────────────────┘   │ OpenAI ($$)    │  │
 │                                         └────────────────┘  │
 │  ┌───────────┐   ┌─────────────────┐   ┌────────────────┐  │
-│  │ Soul      │   │ Project Engine  │   │ Skills (39)    │  │
+│  │ Soul      │   │ Project Engine  │   │ Skills (19)    │  │
 │  │           │   │                  │   │                │  │
-│  │ SOUL.md   │   │ Dynamic AI Plan │   │ Core (7)       │  │
-│  │ STYLE.md  │   │ Novel Pipeline  │   │ Author (17)    │  │
-│  │ VOICE.md  │   │ Auto-Execute    │   │ Marketing (4)  │  │
-│  │           │   │ DOCX Assembly   │   │ Premium (11)   │  │
+│  │ SOUL.md   │   │ 6 Templates     │   │ Core (4)       │  │
+│  │ STYLE.md  │   │ Pipeline Mode   │   │ Author (13)    │  │
+│  │ VOICE.md  │   │ Author Personas │   │ Marketing (2)  │  │
+│  │           │   │ DOCX + EPUB     │   │                │  │
 │  └───────────┘   └─────────────────┘   └────────────────┘  │
 │                                                             │
 │  ┌───────────┐   ┌─────────────────┐   ┌────────────────┐  │
@@ -187,11 +184,13 @@ AuthorClaw: 📊 Workspace Usage: 2.1 MB (67 files)
 
 ## Dashboard
 
-Open `http://localhost:3847` to access the web dashboard:
+Open `http://localhost:3847` to access the web dashboard — a sidebar-driven interface with 5 panels:
 
-- **Home** — Morning briefing, chat with AuthorClaw, quick research, agent report, recent activity feed
-- **Projects** — Create, track, and auto-execute writing projects (including full novel pipelines with 30+ steps)
-- **Settings** — API keys, AI providers, Ollama, budgets, Telegram, heartbeat, research domains
+- **Home** — Quick stats (words today, active projects, heartbeat status), active project cards row, full chat interface with slash command support
+- **Projects** — 6 template tiles (Book Planning, Book Bible, Book Production, Deep Revision, Format & Export, Book Launch) + Pipeline mega-tile + Custom. Project list with status filters, inline detail views with step progress, file downloads, and compile controls
+- **Personas** — Author persona card grid with pen names, genres, and style tags. Create manually or generate with AI. Assign personas to projects for voice-consistent writing
+- **Library** — Document uploads and compiled manuscripts. Download DOCX and EPUB exports
+- **Settings** — API keys (vault-encrypted), Telegram bot config, voice/TTS presets, research domain allowlist, autonomous heartbeat mode
 
 ---
 
@@ -258,45 +257,27 @@ When you give AuthorClaw a task, it doesn't use hardcoded templates. Instead:
 
 1. The AI receives a catalog of all available skills (with descriptions and triggers)
 2. The AI receives the list of Author OS tools
-3. The AI dynamically plans the right number of steps, picks the right skills (39 and counting) for each
+3. The AI dynamically plans the right number of steps, picks the right skills (19 focused) for each
 4. Each step is executed with that skill's full content injected into the AI's context
 5. Results from earlier steps are chained into later steps for continuity
 
-If AI planning fails, the system falls back to template-based planning (8 project types with pre-built step sequences). For novel pipelines, a specialized template generates 30+ steps covering premise, book bible, outline, chapter writing (with word count targets), revision, and final DOCX assembly.
+If AI planning fails, the system falls back to template-based planning (6 project types with pre-built step sequences). For pipeline mode, AuthorClaw chains all 6 phases (Planning → Bible → Production → Revision → Format → Launch) into a single automated workflow, passing outputs forward between phases.
 
 ---
 
 ## Skills
 
-Skills are markdown files that teach the AI how to handle specific writing tasks:
+Skills are markdown files that teach the AI how to handle specific writing tasks. V4 ships with 19 focused, author-centric skills:
 
-**Core Skills (7):** full-pipeline, preference-learner, prompt-optimizer, self-improve, skill-acquisition, error-recovery, after-action-review
+**Core Skills (4):** self-improve, after-action-review, prompt-optimizer, error-recovery
 
-**Author Skills (17):** premise, outline, write, revise, book-bible, series-bible, dialogue, style-clone, research, nonfiction-research, format, beta-reader, query-letter, manuscript-hub, market-research, promote, ingest-tool
+**Author Skills (13):** premise, outline, book-bible, write, revise, dialogue, style-clone, beta-reader, format, research, nonfiction-research, manuscript-hub, ingest-tool
 
-**Marketing Skills (4):** blurb-writer, ad-copy, social-media, email-list
+**Marketing Skills (2):** blurb-writer, ad-copy
 
 **Tool Ingestion:** AuthorClaw can read source code of any tool and generate a new skill from it. Just say "create a skill from this code" or use `POST /api/tools/ingest`.
 
 Skills are automatically matched by keyword triggers and injected into the AI's context. A full reference with descriptions and example trigger keywords is available in `workspace/SKILLS.txt`.
-
-### Premium Skills Bundle
-
-The **AuthorClaw Premium Skills Bundle** adds 11 advanced capabilities — available on our [Ko-Fi store](https://ko-fi.com/s/4e24f1dfa5):
-
-- **Ghostwriter Pro** — A full-stack AI writing partner. Scene generation with deep write mode and multi-pass revision. Pacing analysis, tension mapping, dialogue polish, and style consistency checks.
-- **Series Architect** — Multi-book series planning and continuity engine. Story thread tracker, timeline management, character arc plotting across books.
-- **Book Launch Machine** — Complete 60-day book launch automation. Ad copy factory (Amazon, Facebook, BookBub), email marketing sequences, social media content calendar.
-- **First Chapter Hook** — Analyze and rewrite first chapters for maximum reader retention using genre-specific hook patterns.
-- **Comp Title Finder** — Find and analyze comparable titles for query letters, marketing, and positioning strategy.
-- **Dictation Cleanup** — Speech-to-text cleanup that preserves your voice. Cleans up dictation artifacts, fixes punctuation, polishes prose.
-- **Sensitivity Reader** — AI-assisted sensitivity review for representation, cultural accuracy, and potential reader concerns.
-- **Read Aloud** — Text-to-speech for manuscripts using the built-in Edge TTS neural voice engine.
-- **Narrative Voice Coach** — Deep coaching for developing a distinctive, consistent narrative voice.
-- **Deep Voice Analysis** — Advanced 47-marker voice analysis engine for building comprehensive Voice Profiles.
-- **Writing Secrets Bridges** — Import Book Bible Engine data and Author Workflow Engine sequences into AuthorClaw.
-
-Install: copy the skill folders to `skills/premium/` and restart. See `skills/premium/README.md` for details.
 
 ---
 
@@ -307,23 +288,28 @@ authorclaw/
 ├── gateway/src/          # Core application
 │   ├── index.ts          # Main entry point (gateway, handlers, bridges)
 │   ├── ai/router.ts      # Multi-provider AI routing
-│   ├── api/routes.ts     # REST API endpoints
+│   ├── api/routes.ts     # REST API endpoints (projects, personas, pipeline, export)
 │   ├── bridges/          # Telegram, Discord bridges
 │   ├── security/         # Vault, audit, sandbox, injection detection
-│   ├── services/         # Memory, soul, projects, research, activity log, heartbeat
+│   ├── services/         # Memory, soul, projects, personas, research, heartbeat
+│   │   ├── projects.ts   # Project engine (6 templates, pipeline mode)
+│   │   ├── personas.ts   # Author persona management
+│   │   ├── docx-export.ts # KDP-ready DOCX generation
+│   │   └── epub-export.ts # EPUB3 generation
 │   └── skills/loader.ts  # Skill loading and matching
 ├── skills/               # Skill definitions (SKILL.md files)
-│   ├── core/             # System skills (full-pipeline, etc.)
-│   ├── author/           # Writing skills (17)
-│   ├── marketing/        # Marketing skills (4)
-│   └── premium/          # Premium skill packs (11)
-├── dashboard/dist/       # Web dashboard (single HTML file)
+│   ├── core/             # System skills (4)
+│   ├── author/           # Writing skills (13)
+│   ├── marketing/        # Marketing skills (2)
+│   └── _archived/        # Deprecated V3 skills (reference only)
+├── dashboard/dist/       # Web dashboard (single HTML file, sidebar layout)
 ├── workspace/            # Working directory
 │   ├── soul/             # SOUL.md, STYLE-GUIDE.md, VOICE-PROFILE.md
 │   ├── memory/           # Conversations, book bible, summaries
 │   ├── projects/         # Project output files organized by project
 │   ├── documents/        # Document library (large manuscripts, novels)
 │   ├── research/         # Research output files
+│   ├── .config/          # Persona data, pipeline state
 │   ├── .agent/           # Agent journal, self-improve logs
 │   ├── audio/            # Generated TTS voice files (auto-cleaned after 24hr)
 │   ├── SKILLS.txt        # Full skill reference (auto-generated on startup)
@@ -463,7 +449,7 @@ AuthorClaw is open source and contributions are welcome! Whether you're an autho
 4. Test locally (`npx tsx gateway/src/index.ts`)
 5. Submit a Pull Request with a clear description
 
-For new skills, just create a folder in `skills/author/` (or `skills/marketing/`, `skills/core/`) with a `SKILL.md` file following the existing format (YAML frontmatter + markdown body).
+For new skills, create a folder in `skills/author/`, `skills/marketing/`, or `skills/core/` with a `SKILL.md` file following the existing format (YAML frontmatter + markdown body).
 
 ---
 
