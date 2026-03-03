@@ -512,9 +512,9 @@ Provide the actual template structure with 2-3 example entries per section. Writ
           const provider = this.aiRouter.selectProvider('general');
           const result = await this.aiRouter.complete({
             provider: provider.id,
-            system: 'You are AuthorClaw, an AI writing agent. Be helpful, creative, and concise.',
+            system: 'You are AuthorClaw, an AI writing agent for authors. Be detailed, actionable, and expert-level.',
             messages: [{ role: 'user' as const, content: task.prompt }],
-            maxTokens: 500,
+            maxTokens: 2000,
           });
 
           if (result.text && result.text.length > 20) {
@@ -593,6 +593,14 @@ Provide the actual template structure with 2-3 example entries per section. Writ
       res.sendFile(htmlFile, (err) => {
         if (err) res.status(200).json({ status: 'ok', message: 'AuthorClaw running. Dashboard HTML not found.' });
       });
+    });
+
+    // JSON 404 handler — ensures unmatched API routes return JSON not HTML
+    this.app.use((req: any, res: any, next: any) => {
+      if (req.path.startsWith('/api/')) {
+        return res.status(404).json({ error: `Route not found: ${req.method} ${req.path}` });
+      }
+      next();
     });
 
     // Global JSON error handler — ensures API errors never return HTML

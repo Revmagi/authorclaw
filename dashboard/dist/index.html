@@ -40,6 +40,8 @@
   --card: #ffffff;
   --card-hover: #f1f5f9;
   --border: #e2e8f0;
+  --accent: #1e3a5f;
+  --accent-hover: #15294a;
   --text: #0f172a;
   --text-secondary: #475569;
   --muted: #94a3b8;
@@ -124,15 +126,30 @@ body {
 .nav-item .nav-label { overflow: hidden; }
 
 .sidebar-footer {
-  padding: 16px;
+  padding: 12px 16px;
   border-top: 1px solid var(--border);
   display: flex;
-  align-items: center;
-  gap: 10px;
+  flex-direction: column;
+  gap: 8px;
   font-size: 12px;
   color: var(--muted);
   white-space: nowrap;
 }
+.footer-links {
+  display: flex;
+  gap: 12px;
+  padding-top: 4px;
+}
+.footer-links a {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--muted);
+  text-decoration: none;
+  font-size: 11px;
+  transition: color var(--transition);
+}
+.footer-links a:hover { color: var(--accent); }
 .heartbeat-dot {
   width: 10px;
   height: 10px;
@@ -160,6 +177,7 @@ body {
   .sidebar-brand { justify-content: center; padding: 16px 0; }
   .sidebar-footer { justify-content: center; padding: 12px 0; }
   .sidebar-footer .footer-label { display: none; }
+  .sidebar-footer .footer-links { display: none; }
 }
 
 /* ── Main Content Area ── */
@@ -626,11 +644,23 @@ textarea { resize: vertical; min-height: 60px; }
     </div>
   </div>
   <div class="sidebar-footer">
-    <div class="heartbeat-dot" id="heartbeatDot"></div>
-    <span class="footer-label" id="heartbeatLabel">Connecting...</span>
-    <button class="theme-toggle" id="themeToggle" title="Toggle light/dark mode">
-      <svg id="themeIcon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
-    </button>
+    <div style="display:flex;align-items:center;gap:8px;width:100%;">
+      <div class="heartbeat-dot" id="heartbeatDot"></div>
+      <span class="footer-label" id="heartbeatLabel">Connecting...</span>
+      <button class="theme-toggle" id="themeToggle" title="Toggle light/dark mode">
+        <svg id="themeIcon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
+      </button>
+    </div>
+    <div class="footer-links">
+      <a href="https://www.getwritingsecrets.com" target="_blank" rel="noopener" title="Writing Secrets Website">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+        <span>Website</span>
+      </a>
+      <a href="https://www.youtube.com/@WritingSecrets" target="_blank" rel="noopener" title="Writing Secrets YouTube">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22.54 6.42a2.78 2.78 0 0 0-1.94-2C18.88 4 12 4 12 4s-6.88 0-8.6.46a2.78 2.78 0 0 0-1.94 2A29 29 0 0 0 1 11.75a29 29 0 0 0 .46 5.33A2.78 2.78 0 0 0 3.4 19.13C5.12 19.56 12 19.56 12 19.56s6.88 0 8.6-.46a2.78 2.78 0 0 0 1.94-2 29 29 0 0 0 .46-5.25 29 29 0 0 0-.46-5.43z"/><polygon points="9.75 15.02 15.5 11.75 9.75 8.48 9.75 15.02"/></svg>
+        <span>YouTube</span>
+      </a>
+    </div>
   </div>
 </div>
 
@@ -689,7 +719,10 @@ textarea { resize: vertical; min-height: 60px; }
 
       <!-- Chat Interface -->
       <div class="card">
-        <div class="card-title">Chat with AuthorClaw</div>
+        <div class="card-title" style="display:flex;justify-content:space-between;align-items:center;">
+          <span>Chat with AuthorClaw</span>
+          <button id="btnChatClear" class="small secondary" title="Clear chat history" style="font-size:11px;padding:4px 10px;">Clear</button>
+        </div>
         <div class="chat-container">
           <div class="chat-messages" id="chatMessages">
             <div class="chat-msg bot">Hello! I'm AuthorClaw, your AI writing partner. How can I help you today?</div>
@@ -848,6 +881,24 @@ textarea { resize: vertical; min-height: 60px; }
         </div>
         <button id="btnSaveAutonomous">Save Settings</button>
       </div>
+
+      <!-- Idle Task Queue -->
+      <div class="card">
+        <div class="card-title" style="display:flex;justify-content:space-between;align-items:center;">
+          <span>Idle Task Queue</span>
+          <span style="font-size:11px;color:var(--muted);font-weight:400;">Runs automatically when agent is idle</span>
+        </div>
+        <div class="hint" style="margin-bottom:12px;">When autonomous mode is enabled and there are no active projects, the agent picks a random task from this queue:</div>
+        <div id="idleTaskQueue" style="display:flex;flex-direction:column;gap:6px;"></div>
+      </div>
+
+      <!-- Idle Task History -->
+      <div class="card">
+        <div class="card-title">Idle Task History</div>
+        <div id="idleTaskHistory" style="max-height:400px;overflow-y:auto;">
+          <div style="color:var(--muted);">Loading...</div>
+        </div>
+      </div>
     </div>
 
   </div><!-- /main-body -->
@@ -976,6 +1027,7 @@ function switchPanel(name) {
     loadAutonomousStatus();
     loadTelegramStatus();
     loadVoices();
+    loadIdleTasks();
   } else if (name === 'home') {
     loadProjects();
   }
@@ -1145,6 +1197,11 @@ function sendChat() {
 document.getElementById('btnChatSend').addEventListener('click', sendChat);
 document.getElementById('chatInput').addEventListener('keydown', function(e) {
   if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendChat(); }
+});
+document.getElementById('btnChatClear').addEventListener('click', function() {
+  var el = document.getElementById('chatMessages');
+  el.innerHTML = '<div class="chat-msg bot">Hello! I\'m AuthorClaw, your AI writing partner. How can I help you today?</div>';
+  chatWaiting = false;
 });
 
 // ================================================================
@@ -1542,17 +1599,55 @@ function loadProjectFiles(id) {
     }
     el.innerHTML = '';
     data.files.forEach(function(f) {
-      var icon = f.type === 'docx' ? '&#128216;' : (f.type === 'md' ? '&#128221;' : '&#128196;');
+      var isMd = f.type === 'md' || (f.name && f.name.endsWith('.md'));
+      var iconSvg = isMd
+        ? '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>'
+        : '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>';
       var row = document.createElement('div');
       row.className = 'file-row';
+      var docxBtn = isMd
+        ? '<button class="small secondary btn-export-docx" data-project="' + esc(id) + '" data-file="' + esc(f.name) + '" style="font-size:11px;padding:3px 8px;margin-right:6px;" title="Export as Word document">DOCX</button>'
+        : '';
       row.innerHTML =
-        '<span class="file-icon">' + icon + '</span>' +
+        '<span class="file-icon" style="display:flex;align-items:center;color:var(--accent);">' + iconSvg + '</span>' +
         '<div class="file-info">' +
           '<div class="file-name">' + esc(f.name) + '</div>' +
           '<div class="file-size">' + formatBytes(f.size || 0) + '</div>' +
         '</div>' +
-        '<a class="file-dl" href="/api/projects/' + encodeURIComponent(id) + '/download/' + encodeURIComponent(f.name) + '" download="' + esc(f.name) + '">Download</a>';
+        '<div style="display:flex;align-items:center;">' +
+          docxBtn +
+          '<a class="file-dl" href="/api/projects/' + encodeURIComponent(id) + '/download/' + encodeURIComponent(f.name) + '" download="' + esc(f.name) + '">Download</a>' +
+        '</div>';
       el.appendChild(row);
+    });
+
+    // Wire DOCX export buttons
+    el.querySelectorAll('.btn-export-docx').forEach(function(btn) {
+      btn.addEventListener('click', function() {
+        var projectId = btn.getAttribute('data-project');
+        var filename = btn.getAttribute('data-file');
+        btn.textContent = 'Exporting...';
+        btn.disabled = true;
+        api('POST', '/api/projects/' + encodeURIComponent(projectId) + '/export-docx', { filename: filename }).then(function(data) {
+          if (data.downloadUrl) {
+            var a = document.createElement('a');
+            a.href = data.downloadUrl;
+            a.download = filename.replace(/\.md$/i, '.docx');
+            document.body.appendChild(a);
+            a.click();
+            a.remove();
+            showToast('DOCX downloaded!', 'success');
+          } else {
+            showToast(data.error || 'Export failed', 'error');
+          }
+          btn.textContent = 'DOCX';
+          btn.disabled = false;
+        }).catch(function(e) {
+          showToast('DOCX export failed: ' + e.message, 'error');
+          btn.textContent = 'DOCX';
+          btn.disabled = false;
+        });
+      });
     });
   }).catch(function(e) {
     var el = document.getElementById('pdFiles');
@@ -2057,6 +2152,82 @@ document.getElementById('btnSaveAutonomous').addEventListener('click', function(
     loadAutonomousStatus();
   }).catch(function(e) { showToast('Failed: ' + e.message, 'error'); });
 });
+
+// ================================================================
+// IDLE TASKS
+// ================================================================
+function loadIdleTasks() {
+  api('GET', '/api/autonomous/idle-tasks').then(function(data) {
+    // Render task queue
+    var queueEl = document.getElementById('idleTaskQueue');
+    if (queueEl && data.queue) {
+      queueEl.innerHTML = '';
+      var icons = {
+        'Market trend analysis': '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>',
+        'Manuscript quality audit scorecard': '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>',
+        'Backlist optimization report': '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>',
+        'Series bible auto-update template': '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>',
+        'Reader response simulation': '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>'
+      };
+      data.queue.forEach(function(taskName) {
+        var row = document.createElement('div');
+        row.style.cssText = 'display:flex;align-items:center;gap:8px;padding:8px 12px;background:var(--bg);border-radius:var(--radius-sm);border:1px solid var(--border);';
+        row.innerHTML = '<span style="color:var(--accent);display:flex;">' + (icons[taskName] || '') + '</span>' +
+          '<span style="flex:1;font-size:13px;">' + esc(taskName) + '</span>' +
+          '<span style="font-size:11px;color:var(--muted);white-space:nowrap;">Random pick</span>';
+        queueEl.appendChild(row);
+      });
+    }
+
+    // Render task history
+    var histEl = document.getElementById('idleTaskHistory');
+    if (histEl) {
+      if (!data.tasks || data.tasks.length === 0) {
+        histEl.innerHTML = '<div style="color:var(--muted);padding:8px 0;">No idle tasks completed yet. Enable autonomous mode to start generating.</div>';
+        return;
+      }
+      histEl.innerHTML = '';
+      data.tasks.forEach(function(t) {
+        var card = document.createElement('div');
+        card.style.cssText = 'padding:10px 12px;margin-bottom:8px;background:var(--bg);border-radius:var(--radius-sm);border:1px solid var(--border);cursor:pointer;transition:border-color var(--transition);';
+        card.addEventListener('mouseenter', function() { card.style.borderColor = 'var(--accent)'; });
+        card.addEventListener('mouseleave', function() { card.style.borderColor = 'var(--border)'; });
+        var dateStr = new Date(t.date).toLocaleDateString() + ' ' + new Date(t.date).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+        card.innerHTML =
+          '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">' +
+            '<strong style="font-size:13px;">' + esc(t.title) + '</strong>' +
+            '<span style="font-size:11px;color:var(--muted);">' + dateStr + '</span>' +
+          '</div>' +
+          '<div style="font-size:12px;color:var(--text-secondary);line-height:1.5;" class="idle-preview">' + esc(t.preview.substring(t.preview.indexOf('\n\n') + 2, 200)) + '...</div>';
+        card.addEventListener('click', function() {
+          api('GET', '/api/autonomous/idle-tasks/' + encodeURIComponent(t.file)).then(function(d) {
+            showIdleTaskModal(t.title, d.content);
+          }).catch(function(e) { showToast('Failed to load: ' + e.message, 'error'); });
+        });
+        histEl.appendChild(card);
+      });
+    }
+  }).catch(function() {
+    var histEl = document.getElementById('idleTaskHistory');
+    if (histEl) histEl.innerHTML = '<div style="color:var(--muted);">Could not load idle tasks.</div>';
+  });
+}
+
+function showIdleTaskModal(title, content) {
+  var overlay = document.createElement('div');
+  overlay.className = 'modal-overlay';
+  overlay.innerHTML =
+    '<div class="modal" style="max-width:700px;max-height:80vh;overflow-y:auto;">' +
+      '<div class="modal-title">' + esc(title) + '</div>' +
+      '<div style="white-space:pre-wrap;font-size:13px;line-height:1.7;color:var(--text-secondary);">' + esc(content) + '</div>' +
+      '<div class="modal-actions">' +
+        '<button class="secondary" id="idleModalClose">Close</button>' +
+      '</div>' +
+    '</div>';
+  document.body.appendChild(overlay);
+  overlay.querySelector('#idleModalClose').addEventListener('click', function() { overlay.remove(); });
+  overlay.addEventListener('click', function(e) { if (e.target === overlay) overlay.remove(); });
+}
 
 // ================================================================
 // THEME TOGGLE

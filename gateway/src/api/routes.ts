@@ -1669,6 +1669,64 @@ export function createAPIRoutes(app: Application, gateway: any, rootDir?: string
     res.json({ success: true, status: services.heartbeat.getAutonomousStatus() });
   });
 
+  // ── Idle Task Results ──
+  app.get('/api/autonomous/idle-tasks', async (_req: Request, res: Response) => {
+    try {
+      const { join: j } = await import('path');
+      const { readdir, readFile, stat } = await import('fs/promises');
+      const { existsSync } = await import('fs');
+      const agentDir = j(baseDir, 'workspace', '.agent');
+      if (!existsSync(agentDir)) return res.json({ tasks: [], queue: [] });
+
+      const files = await readdir(agentDir);
+      const idleFiles = files.filter(f => f.startsWith('idle-') && f.endsWith('.md')).sort().reverse();
+      const tasks: any[] = [];
+      for (const file of idleFiles.slice(0, 20)) {
+        const content = await readFile(j(agentDir, file), 'utf-8');
+        const fileStat = await stat(j(agentDir, file));
+        const titleMatch = content.match(/^# (.+)$/m);
+        tasks.push({
+          file,
+          title: titleMatch ? titleMatch[1] : file,
+          preview: content.substring(0, 300),
+          date: fileStat.mtime.toISOString(),
+          size: fileStat.size,
+        });
+      }
+
+      // Return the idle task queue (labels) so the dashboard can show what tasks are available
+      const queue = [
+        'Market trend analysis',
+        'Manuscript quality audit scorecard',
+        'Backlist optimization report',
+        'Series bible auto-update template',
+        'Reader response simulation',
+      ];
+
+      res.json({ tasks, queue });
+    } catch (err) {
+      res.status(500).json({ error: 'Failed to load idle tasks: ' + String(err) });
+    }
+  });
+
+  // ── Download idle task file ──
+  app.get('/api/autonomous/idle-tasks/:filename', async (req: Request, res: Response) => {
+    try {
+      const { join: j, resolve: r } = await import('path');
+      const { readFile } = await import('fs/promises');
+      const { existsSync } = await import('fs');
+      const agentDir = j(baseDir, 'workspace', '.agent');
+      const filePath = r(agentDir, String(req.params.filename));
+      if (!filePath.startsWith(r(agentDir)) || !existsSync(filePath)) {
+        return res.status(404).json({ error: 'Idle task file not found' });
+      }
+      const content = await readFile(filePath, 'utf-8');
+      res.json({ content, filename: req.params.filename });
+    } catch (err) {
+      res.status(500).json({ error: 'Failed to read idle task: ' + String(err) });
+    }
+  });
+
   // ── Agent Journal ──
   app.get('/api/agent/journal', (_req: Request, res: Response) => {
     res.json({ journal: services.heartbeat.getJournal() });
@@ -1899,6 +1957,8 @@ ${sourceCode.substring(0, 15000)}
   // ═══════════════════════════════════════════════════════════
   // Author Personas
   // ═══════════════════════════════════════════════════════════
+  // IMPORTANT: Static routes (/generate) must be defined BEFORE parameterized routes (/:id)
+  // to prevent Express from matching "generate" as an :id parameter.
 
   app.get('/api/personas', (_req: Request, res: Response) => {
     const personas = services.personas;
@@ -1906,14 +1966,46 @@ ${sourceCode.substring(0, 15000)}
     res.json({ personas: personas.list() });
   });
 
-  app.get('/api/personas/:id', (req: Request, res: Response) => {
+  // AI-assisted full persona generation (static route — must precede /:id)
+  app.post('/api/personas/generate', async (req: Request, res: Response) => {
     const personas = services.personas;
     if (!personas) return res.status(503).json({ error: 'Persona service not initialized' });
-    const persona = personas.get(req.params.id);
-    if (!persona) return res.status(404).json({ error: 'Persona not found' });
-    res.json(persona);
+    const { genre, description } = req.body;
+    if (!genre) return res.status(400).json({ error: 'genre is required' });
+
+    try {
+      const provider = services.aiRouter?.selectProvider('general');
+      if (!provider) return res.status(503).json({ error: 'No AI provider available. Configure an API key in Settings first.' });
+      const result = await services.aiRouter.complete({
+        provider: provider.id,
+        system: 'You are a publishing industry expert. Return ONLY valid JSON, no markdown.',
+        messages: [{
+          role: 'user' as const,
+          content: `Create an author persona for someone who writes ${genre}. ${description || ''}\n\nReturn JSON with these fields:\n- penName: a believable pen name for this genre\n- genre: the main genre\n- subGenre: a specific subgenre\n- voiceDescription: 1-2 sentences describing their writing voice/style\n- styleMarkers: array of 3-5 style descriptors (e.g. "witty dialogue", "slow burn")\n- bio: a 2-3 sentence author bio in third person\n\nReturn ONLY the JSON object.`,
+        }],
+        maxTokens: 500,
+      });
+      if (result.text) {
+        const cleaned = result.text.replace(/```json\n?|```\n?/g, '').trim();
+        const generated = JSON.parse(cleaned);
+        const persona = await personas.create({
+          penName: generated.penName || 'New Author',
+          genre: generated.genre || genre,
+          subGenre: generated.subGenre || '',
+          voiceDescription: generated.voiceDescription || '',
+          styleMarkers: generated.styleMarkers || [],
+          bio: generated.bio || '',
+        });
+        res.status(201).json(persona);
+      } else {
+        res.status(500).json({ error: 'AI returned empty response' });
+      }
+    } catch (err) {
+      res.status(500).json({ error: 'Failed to generate persona: ' + String(err) });
+    }
   });
 
+  // Create persona (static route — must precede /:id)
   app.post('/api/personas', async (req: Request, res: Response) => {
     const personas = services.personas;
     if (!personas) return res.status(503).json({ error: 'Persona service not initialized' });
@@ -1927,6 +2019,15 @@ ${sourceCode.substring(0, 15000)}
     } catch (err) {
       res.status(500).json({ error: 'Failed to create persona: ' + String(err) });
     }
+  });
+
+  // Parameterized persona routes (/:id)
+  app.get('/api/personas/:id', (req: Request, res: Response) => {
+    const personas = services.personas;
+    if (!personas) return res.status(503).json({ error: 'Persona service not initialized' });
+    const persona = personas.get(req.params.id);
+    if (!persona) return res.status(404).json({ error: 'Persona not found' });
+    res.json(persona);
   });
 
   app.put('/api/personas/:id', async (req: Request, res: Response) => {
@@ -1949,7 +2050,7 @@ ${sourceCode.substring(0, 15000)}
     res.json({ success: true });
   });
 
-  // AI-assisted persona generation
+  // AI-assisted bio generation for existing persona
   app.post('/api/personas/:id/generate-bio', async (req: Request, res: Response) => {
     const personas = services.personas;
     if (!personas) return res.status(503).json({ error: 'Persona service not initialized' });
@@ -1976,46 +2077,6 @@ ${sourceCode.substring(0, 15000)}
       }
     } catch (err) {
       res.status(500).json({ error: 'Failed to generate bio: ' + String(err) });
-    }
-  });
-
-  // AI-assisted full persona generation
-  app.post('/api/personas/generate', async (req: Request, res: Response) => {
-    const personas = services.personas;
-    if (!personas) return res.status(503).json({ error: 'Persona service not initialized' });
-    const { genre, description } = req.body;
-    if (!genre) return res.status(400).json({ error: 'genre is required' });
-
-    try {
-      const provider = services.aiRouter?.selectProvider('general');
-      if (!provider) return res.status(503).json({ error: 'No AI provider available. Configure an API key in Settings first.' });
-      const result = await services.aiRouter.complete({
-        provider: provider.id,
-        system: 'You are a publishing industry expert. Return ONLY valid JSON, no markdown.',
-        messages: [{
-          role: 'user' as const,
-          content: `Create an author persona for someone who writes ${genre}. ${description || ''}\n\nReturn JSON with these fields:\n- penName: a believable pen name for this genre\n- genre: the main genre\n- subGenre: a specific subgenre\n- voiceDescription: 1-2 sentences describing their writing voice/style\n- styleMarkers: array of 3-5 style descriptors (e.g. "witty dialogue", "slow burn")\n- bio: a 2-3 sentence author bio in third person\n\nReturn ONLY the JSON object.`,
-        }],
-        maxTokens: 500,
-      });
-      if (result.text) {
-        // Parse the AI response as JSON
-        const cleaned = result.text.replace(/```json\n?|```\n?/g, '').trim();
-        const generated = JSON.parse(cleaned);
-        const persona = await personas.create({
-          penName: generated.penName || 'New Author',
-          genre: generated.genre || genre,
-          subGenre: generated.subGenre || '',
-          voiceDescription: generated.voiceDescription || '',
-          styleMarkers: generated.styleMarkers || [],
-          bio: generated.bio || '',
-        });
-        res.status(201).json(persona);
-      } else {
-        res.status(500).json({ error: 'AI returned empty response' });
-      }
-    } catch (err) {
-      res.status(500).json({ error: 'Failed to generate persona: ' + String(err) });
     }
   });
 
