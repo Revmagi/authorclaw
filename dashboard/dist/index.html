@@ -8,29 +8,54 @@
 /* ================================================================
    AuthorClaw Dashboard v4.0.0 — Single-file SPA
    ================================================================ */
-*, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+* { margin: 0; padding: 0; box-sizing: border-box; }
 
-:root {
-  --bg: #1a1a2e;
-  --card: #16213e;
-  --border: #0f3460;
-  --accent: #e67e22;
-  --accent-hover: #d35400;
-  --text: #e0e0e0;
-  --muted: #7f8c8d;
-  --success: #27ae60;
-  --danger: #c0392b;
-  --info: #2980b9;
-  --warn: #f39c12;
-  --sidebar-w: 220px;
-  --sidebar-collapsed: 60px;
+:root, [data-theme="dark"] {
+  --bg: #0f172a;
+  --bg-secondary: #1e293b;
+  --card: #1e293b;
+  --card-hover: #263548;
+  --border: #334155;
+  --accent: #f59e0b;
+  --accent-hover: #d97706;
+  --text: #f1f5f9;
+  --text-secondary: #94a3b8;
+  --muted: #64748b;
+  --success: #22c55e;
+  --danger: #ef4444;
+  --info: #3b82f6;
+  --warn: #f59e0b;
+  --sidebar-w: 240px;
+  --sidebar-collapsed: 64px;
+  --radius: 12px;
+  --radius-sm: 8px;
+  --shadow: 0 1px 3px rgba(0,0,0,0.3), 0 1px 2px rgba(0,0,0,0.2);
+  --shadow-lg: 0 4px 12px rgba(0,0,0,0.4);
+  --transition: 0.2s ease;
+}
+
+[data-theme="light"] {
+  --bg: #f8fafc;
+  --bg-secondary: #ffffff;
+  --card: #ffffff;
+  --card-hover: #f1f5f9;
+  --border: #e2e8f0;
+  --text: #0f172a;
+  --text-secondary: #475569;
+  --muted: #94a3b8;
+  --shadow: 0 1px 3px rgba(0,0,0,0.08), 0 1px 2px rgba(0,0,0,0.04);
+  --shadow-lg: 0 4px 12px rgba(0,0,0,0.1);
 }
 
 html, body { height: 100%; }
 body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Inter', system-ui, sans-serif;
   background: var(--bg);
   color: var(--text);
-  font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+  font-size: 14px;
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
   display: flex;
   overflow: hidden;
 }
@@ -172,10 +197,15 @@ body {
 /* ── Cards ── */
 .card {
   background: var(--card);
-  border-radius: 10px;
+  border-radius: var(--radius);
   padding: 20px;
   margin-bottom: 18px;
   border: 1px solid var(--border);
+  box-shadow: var(--shadow);
+  transition: box-shadow var(--transition), transform var(--transition);
+}
+.card:hover {
+  box-shadow: var(--shadow-lg);
 }
 .card-title {
   font-size: 14px;
@@ -209,11 +239,12 @@ button, .btn {
   color: #fff;
   border: none;
   padding: 8px 18px;
-  border-radius: 6px;
+  border-radius: var(--radius-sm);
   cursor: pointer;
   font-weight: 600;
   font-size: 14px;
-  transition: background 0.2s;
+  letter-spacing: 0.01em;
+  transition: all var(--transition);
   font-family: inherit;
 }
 button:hover { background: var(--accent-hover); }
@@ -337,10 +368,10 @@ textarea { resize: vertical; min-height: 60px; }
   transition: all 0.2s;
   text-align: center;
 }
-.template-tile:hover { border-color: var(--accent); transform: translateY(-2px); }
+.template-tile:hover { transform: translateY(-2px); border-color: var(--accent); box-shadow: var(--shadow-lg); }
 .template-tile.highlighted { border-color: var(--accent); background: rgba(230,126,34,0.06); }
 .template-tile.span-2 { grid-column: span 2; }
-.template-tile .tile-icon { font-size: 28px; margin-bottom: 8px; }
+.template-tile .tile-icon { font-size: 28px; margin-bottom: 8px; color: var(--accent); display: flex; justify-content: center; }
 .template-tile .tile-name { font-weight: 700; font-size: 14px; margin-bottom: 4px; }
 .template-tile .tile-desc { font-size: 12px; color: var(--muted); margin-bottom: 6px; line-height: 1.4; }
 .template-tile .tile-steps { font-size: 11px; color: var(--accent); }
@@ -542,6 +573,21 @@ textarea { resize: vertical; min-height: 60px; }
 ::-webkit-scrollbar-track { background: var(--bg); }
 ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
 ::-webkit-scrollbar-thumb:hover { background: #1a4a8a; }
+
+/* Theme toggle */
+.theme-toggle { background: transparent; border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 6px 8px; cursor: pointer; color: var(--muted); transition: all var(--transition); margin-left: auto; display: flex; align-items: center; }
+.theme-toggle:hover { color: var(--accent); border-color: var(--accent); background: transparent; }
+
+/* Activity feed */
+.activity-entry { display:flex; gap:10px; align-items:flex-start; padding:8px 0; border-bottom:1px solid var(--border); font-size:13px; }
+.activity-entry:last-child { border-bottom:none; }
+.activity-dot { width:8px; height:8px; border-radius:50%; flex-shrink:0; margin-top:5px; background:var(--muted); }
+.activity-dot.project_created, .activity-dot.step_completed { background:var(--success); }
+.activity-dot.step_started { background:var(--info); }
+.activity-dot.error, .activity-dot.step_failed { background:var(--danger); }
+.activity-dot.chat_message { background:var(--accent); }
+.activity-dot.system { background:var(--muted); }
+.activity-time { color:var(--muted); font-size:11px; white-space:nowrap; }
 </style>
 </head>
 <body>
@@ -551,7 +597,7 @@ textarea { resize: vertical; min-height: 60px; }
      ═══════════════════════════════════════════════ -->
 <div class="sidebar">
   <div class="sidebar-brand">
-    <span class="brand-icon">&#128059;</span>
+    <span class="brand-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.85 2.85 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/><path d="m15 5 4 4"/></svg></span>
     <div>
       <span class="brand-text">AuthorClaw</span>
       <span class="brand-ver">v4.0.0</span>
@@ -559,29 +605,32 @@ textarea { resize: vertical; min-height: 60px; }
   </div>
   <div class="sidebar-nav">
     <div class="nav-item active" data-panel="home">
-      <span class="nav-icon">&#127968;</span>
+      <span class="nav-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg></span>
       <span class="nav-label">Home</span>
     </div>
     <div class="nav-item" data-panel="projects">
-      <span class="nav-icon">&#128203;</span>
+      <span class="nav-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg></span>
       <span class="nav-label">Projects</span>
     </div>
     <div class="nav-item" data-panel="personas">
-      <span class="nav-icon">&#128100;</span>
+      <span class="nav-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg></span>
       <span class="nav-label">Personas</span>
     </div>
     <div class="nav-item" data-panel="library">
-      <span class="nav-icon">&#128218;</span>
+      <span class="nav-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg></span>
       <span class="nav-label">Library</span>
     </div>
     <div class="nav-item" data-panel="settings">
-      <span class="nav-icon">&#9881;&#65039;</span>
+      <span class="nav-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></span>
       <span class="nav-label">Settings</span>
     </div>
   </div>
   <div class="sidebar-footer">
     <div class="heartbeat-dot" id="heartbeatDot"></div>
     <span class="footer-label" id="heartbeatLabel">Connecting...</span>
+    <button class="theme-toggle" id="themeToggle" title="Toggle light/dark mode">
+      <svg id="themeIcon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
+    </button>
   </div>
 </div>
 
@@ -627,6 +676,14 @@ textarea { resize: vertical; min-height: 60px; }
         <div class="card-title">Active Projects</div>
         <div class="project-scroll" id="homeProjectScroll">
           <div style="color:var(--muted);padding:20px;text-align:center;width:100%;">No active projects. Go to Projects to create one.</div>
+        </div>
+      </div>
+
+      <!-- Activity Feed -->
+      <div class="card" style="margin-bottom:16px;">
+        <div class="card-title">Recent Activity</div>
+        <div class="activity-feed" id="activityFeed" style="max-height:220px;overflow-y:auto;">
+          <div style="color:var(--muted);text-align:center;padding:16px;">Loading activity...</div>
         </div>
       </div>
 
@@ -759,10 +816,10 @@ textarea { resize: vertical; min-height: 60px; }
         <button id="btnTestVoice" class="secondary">Test Voice</button>
       </div>
 
-      <!-- Research Domains -->
+      <!-- Website Allowlist -->
       <div class="card">
-        <div class="card-title">Research Domains</div>
-        <p class="hint" style="margin-bottom:8px;">Approved domains for AI research. One per line.</p>
+        <div class="card-title">Website Allowlist</div>
+        <p class="hint" style="margin-bottom:8px;">Approved websites for AI research and tasks. One domain per line.</p>
         <div class="form-group">
           <textarea id="researchDomains" rows="5" placeholder="wikipedia.org&#10;arxiv.org"></textarea>
         </div>
@@ -841,13 +898,15 @@ function api(method, path, body) {
   var opts = { method: method, headers: { 'Content-Type': 'application/json' } };
   if (body) opts.body = JSON.stringify(body);
   return fetch(API + path, opts).then(function(res) {
+    var ct = res.headers.get('content-type') || '';
     if (!res.ok) {
-      return res.json().then(function(d) {
-        throw new Error(d.error || ('HTTP ' + res.status));
-      }).catch(function(pe) {
-        if (pe.message && !pe.message.startsWith('HTTP ')) throw pe;
-        throw new Error('HTTP ' + res.status + ' ' + res.statusText);
-      });
+      if (ct.indexOf('application/json') !== -1) {
+        return res.json().then(function(d) { throw new Error(d.error || ('HTTP ' + res.status)); });
+      }
+      throw new Error('HTTP ' + res.status + ' ' + res.statusText);
+    }
+    if (ct.indexOf('application/json') === -1) {
+      throw new Error('Server returned non-JSON response');
     }
     return res.json();
   });
@@ -984,10 +1043,14 @@ function startPolling() {
   loadStatus();
   loadProjects();
   loadPersonas();
+  loadActivity();
   statusPollTimer = setInterval(loadStatus, 10000);
   projectPollTimer = setInterval(function() {
     if (currentPanel === 'home' || currentPanel === 'projects') {
       loadProjects();
+    }
+    if (currentPanel === 'home') {
+      loadActivity();
     }
   }, 15000);
 }
@@ -1090,14 +1153,14 @@ document.getElementById('chatInput').addEventListener('keydown', function(e) {
 
 // ── Template Tiles ──
 var defaultTemplates = [
-  { id: 'book-planning', icon: '&#128214;', name: 'Book Planning', desc: 'Outline and plan your book structure', steps: '5-8 steps', type: 'book-planning' },
-  { id: 'book-bible', icon: '&#128220;', name: 'Book Bible', desc: 'Build your story world bible', steps: '6-10 steps', type: 'book-bible' },
-  { id: 'book-production', icon: '&#9999;&#65039;', name: 'Book Production', desc: 'Write chapters from outline to draft', steps: '10-30 steps', type: 'book-production' },
-  { id: 'deep-revision', icon: '&#128269;', name: 'Deep Revision', desc: 'Analyze and revise your manuscript', steps: '8-12 steps', type: 'deep-revision' },
-  { id: 'format-export', icon: '&#128230;', name: 'Format & Export', desc: 'Format manuscript for publishing', steps: '4-6 steps', type: 'format-export' },
-  { id: 'book-launch', icon: '&#128640;', name: 'Book Launch', desc: 'Marketing copy and launch materials', steps: '6-10 steps', type: 'book-launch' },
-  { id: 'pipeline', icon: '&#128295;', name: 'Pipeline', desc: 'Full book pipeline: plan to publish (all 6 phases)', steps: '30+ steps', type: 'novel-pipeline', highlighted: true, span2: true },
-  { id: 'custom', icon: '&#10024;', name: 'Custom', desc: 'Describe your project freely', steps: 'AI-planned', type: 'custom' }
+  { id: 'book-planning', icon: '<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="3 6 9 3 15 6 21 3 21 18 15 21 9 18 3 21"/><line x1="9" y1="3" x2="9" y2="18"/><line x1="15" y1="6" x2="15" y2="21"/></svg>', name: 'Book Planning', desc: 'Outline and plan your book structure', steps: '5-8 steps', type: 'book-planning' },
+  { id: 'book-bible', icon: '<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/><line x1="8" y1="7" x2="16" y2="7"/><line x1="8" y1="11" x2="13" y2="11"/></svg>', name: 'Book Bible', desc: 'Build your story world bible', steps: '6-10 steps', type: 'book-bible' },
+  { id: 'book-production', icon: '<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19l7-7 3 3-7 7-3-3z"/><path d="M18 13l-1.5-7.5L2 2l3.5 14.5L13 18l5-5z"/><path d="M2 2l7.586 7.586"/><circle cx="11" cy="11" r="2"/></svg>', name: 'Book Production', desc: 'Write chapters from outline to draft', steps: '10-30 steps', type: 'book-production' },
+  { id: 'deep-revision', icon: '<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>', name: 'Deep Revision', desc: 'Analyze and revise your manuscript', steps: '8-12 steps', type: 'deep-revision' },
+  { id: 'format-export', icon: '<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>', name: 'Format & Export', desc: 'Format manuscript for publishing', steps: '4-6 steps', type: 'format-export' },
+  { id: 'book-launch', icon: '<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4.5 16.5c-1.5 1.26-2 5-2 5s3.74-.5 5-2c.71-.84.7-2.13-.09-2.91a2.18 2.18 0 0 0-2.91-.09z"/><path d="m12 15-3-3a22 22 0 0 1 2-3.95A12.88 12.88 0 0 1 22 2c0 2.72-.78 7.5-6 11a22.35 22.35 0 0 1-4 2z"/><path d="M9 12H4s.55-3.03 2-4c1.62-1.08 5 0 5 0"/><path d="M12 15v5s3.03-.55 4-2c1.08-1.62 0-5 0-5"/></svg>', name: 'Book Launch', desc: 'Marketing copy and launch materials', steps: '6-10 steps', type: 'book-launch' },
+  { id: 'custom', icon: '<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"/><path d="M5 3v4"/><path d="M19 17v4"/><path d="M3 5h4"/><path d="M17 19h4"/></svg>', name: 'Custom', desc: 'Describe your project freely', steps: 'AI-planned', type: 'custom' },
+  { id: 'pipeline', icon: '<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="18" r="3"/><circle cx="6" cy="6" r="3"/><path d="M6 21V9a9 9 0 0 0 9 9"/></svg>', name: 'Full Pipeline', desc: 'Complete book pipeline: plan, bible, write, revise, format, launch — all 6 phases from one idea', steps: '30+ steps', type: 'novel-pipeline', highlighted: true, span2: true }
 ];
 
 function loadTemplates() {
@@ -1615,14 +1678,14 @@ function openPersonaModal(persona) {
         '<label>TTS Voice</label>' +
         '<select id="pmTTS">' +
           '<option value="">None</option>' +
-          '<option value="en-US-AriaNeural"' + (persona && persona.ttsVoice === 'en-US-AriaNeural' ? ' selected' : '') + '>Aria (Female, US)</option>' +
-          '<option value="en-US-GuyNeural"' + (persona && persona.ttsVoice === 'en-US-GuyNeural' ? ' selected' : '') + '>Guy (Male, US)</option>' +
-          '<option value="en-US-JennyNeural"' + (persona && persona.ttsVoice === 'en-US-JennyNeural' ? ' selected' : '') + '>Jenny (Female, US)</option>' +
-          '<option value="en-US-DavisNeural"' + (persona && persona.ttsVoice === 'en-US-DavisNeural' ? ' selected' : '') + '>Davis (Male, US)</option>' +
-          '<option value="en-GB-SoniaNeural"' + (persona && persona.ttsVoice === 'en-GB-SoniaNeural' ? ' selected' : '') + '>Sonia (Female, UK)</option>' +
-          '<option value="en-GB-RyanNeural"' + (persona && persona.ttsVoice === 'en-GB-RyanNeural' ? ' selected' : '') + '>Ryan (Male, UK)</option>' +
-          '<option value="en-AU-NatashaNeural"' + (persona && persona.ttsVoice === 'en-AU-NatashaNeural' ? ' selected' : '') + '>Natasha (Female, AU)</option>' +
-          '<option value="en-AU-WilliamNeural"' + (persona && persona.ttsVoice === 'en-AU-WilliamNeural' ? ' selected' : '') + '>William (Male, AU)</option>' +
+          '<option value="narrator_female"' + (persona && persona.ttsVoice === 'narrator_female' ? ' selected' : '') + '>Narrator Female — Versatile, expressive</option>' +
+          '<option value="narrator_male"' + (persona && persona.ttsVoice === 'narrator_male' ? ' selected' : '') + '>Narrator Male — Literary fiction, thrillers</option>' +
+          '<option value="narrator_deep"' + (persona && persona.ttsVoice === 'narrator_deep' ? ' selected' : '') + '>Narrator Deep — Epic fantasy, sci-fi</option>' +
+          '<option value="narrator_warm"' + (persona && persona.ttsVoice === 'narrator_warm' ? ' selected' : '') + '>Narrator Warm — Romance, memoir</option>' +
+          '<option value="british_male"' + (persona && persona.ttsVoice === 'british_male' ? ' selected' : '') + '>British Male — Period pieces, cozy mysteries</option>' +
+          '<option value="british_female"' + (persona && persona.ttsVoice === 'british_female' ? ' selected' : '') + '>British Female — Elegant literary fiction</option>' +
+          '<option value="storyteller"' + (persona && persona.ttsVoice === 'storyteller' ? ' selected' : '') + '>Storyteller — Adventure, YA</option>' +
+          '<option value="dramatic"' + (persona && persona.ttsVoice === 'dramatic' ? ' selected' : '') + '>Dramatic — Action, thriller, horror</option>' +
         '</select>' +
       '</div>' +
       '<div class="form-group">' +
@@ -1888,14 +1951,15 @@ document.getElementById('btnDisconnectTelegram').addEventListener('click', funct
 function loadVoices() {
   api('GET', '/api/audio/voices').then(function(data) {
     var sel = document.getElementById('ttsVoiceSelect');
-    var voices = data.voices || data || [];
     sel.innerHTML = '<option value="">Select a voice...</option>';
-    if (Array.isArray(voices)) {
-      voices.forEach(function(v) {
-        var name = typeof v === 'string' ? v : (v.name || v.id || v);
+    if (data.presets && typeof data.presets === 'object') {
+      Object.keys(data.presets).forEach(function(key) {
+        var preset = data.presets[key];
         var opt = document.createElement('option');
-        opt.value = typeof v === 'string' ? v : (v.id || v.name);
-        opt.textContent = name;
+        opt.value = key;
+        var label = key.replace(/_/g, ' ').replace(/\b\w/g, function(c) { return c.toUpperCase(); });
+        opt.textContent = label + ' — ' + (preset.description || '');
+        if (data.activeVoice === key || data.activeVoice === preset.voice) opt.selected = true;
         sel.appendChild(opt);
       });
     }
@@ -1903,14 +1967,14 @@ function loadVoices() {
     var sel = document.getElementById('ttsVoiceSelect');
     sel.innerHTML =
       '<option value="">Could not load voices</option>' +
-      '<option value="en-US-AriaNeural">Aria (Female, US)</option>' +
-      '<option value="en-US-GuyNeural">Guy (Male, US)</option>' +
-      '<option value="en-US-JennyNeural">Jenny (Female, US)</option>' +
-      '<option value="en-US-DavisNeural">Davis (Male, US)</option>' +
-      '<option value="en-GB-SoniaNeural">Sonia (Female, UK)</option>' +
-      '<option value="en-GB-RyanNeural">Ryan (Male, UK)</option>' +
-      '<option value="en-AU-NatashaNeural">Natasha (Female, AU)</option>' +
-      '<option value="en-AU-WilliamNeural">William (Male, AU)</option>';
+      '<option value="narrator_female">Narrator Female — Versatile, expressive</option>' +
+      '<option value="narrator_male">Narrator Male — Literary fiction, thrillers</option>' +
+      '<option value="narrator_deep">Narrator Deep — Epic fantasy, sci-fi</option>' +
+      '<option value="narrator_warm">Narrator Warm — Romance, memoir</option>' +
+      '<option value="british_male">British Male — Period pieces, cozy mysteries</option>' +
+      '<option value="british_female">British Female — Elegant literary fiction</option>' +
+      '<option value="storyteller">Storyteller — Adventure, YA</option>' +
+      '<option value="dramatic">Dramatic — Action, thriller, horror</option>';
   });
 }
 
@@ -1993,6 +2057,59 @@ document.getElementById('btnSaveAutonomous').addEventListener('click', function(
     loadAutonomousStatus();
   }).catch(function(e) { showToast('Failed: ' + e.message, 'error'); });
 });
+
+// ================================================================
+// THEME TOGGLE
+// ================================================================
+var themeToggle = document.getElementById('themeToggle');
+var savedTheme = localStorage.getItem('authorclaw-theme') || 'dark';
+document.documentElement.setAttribute('data-theme', savedTheme);
+
+themeToggle.addEventListener('click', function() {
+  var current = document.documentElement.getAttribute('data-theme');
+  var next = current === 'dark' ? 'light' : 'dark';
+  document.documentElement.setAttribute('data-theme', next);
+  localStorage.setItem('authorclaw-theme', next);
+  // Swap icon
+  var icon = document.getElementById('themeIcon');
+  if (next === 'light') {
+    icon.innerHTML = '<path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>';
+  } else {
+    icon.innerHTML = '<circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>';
+  }
+});
+// Set initial icon
+if (savedTheme === 'light') {
+  document.getElementById('themeIcon').innerHTML = '<path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>';
+}
+
+// ================================================================
+// ACTIVITY FEED
+// ================================================================
+function loadActivity() {
+  api('GET', '/api/activity?count=15').then(function(data) {
+    var feed = document.getElementById('activityFeed');
+    var entries = data.entries || [];
+    if (!entries.length) { feed.innerHTML = '<div style="color:var(--muted);text-align:center;padding:16px;">No activity yet.</div>'; return; }
+    feed.innerHTML = '';
+    entries.forEach(function(e) {
+      var row = document.createElement('div');
+      row.className = 'activity-entry';
+      var ago = formatTimeAgo(e.timestamp);
+      row.innerHTML = '<div class="activity-dot ' + esc(e.type) + '"></div><div style="flex:1;">' + esc(e.message) + '</div><div class="activity-time">' + esc(ago) + '</div>';
+      feed.appendChild(row);
+    });
+  }).catch(function() {
+    document.getElementById('activityFeed').innerHTML = '<div style="color:var(--muted);text-align:center;padding:16px;">Could not load activity.</div>';
+  });
+}
+function formatTimeAgo(iso) {
+  var diff = Math.floor((Date.now() - new Date(iso).getTime()) / 1000);
+  if (diff < 60) return diff + 's ago';
+  if (diff < 3600) return Math.floor(diff/60) + 'm ago';
+  if (diff < 86400) return Math.floor(diff/3600) + 'h ago';
+  return Math.floor(diff/86400) + 'd ago';
+}
 
 // ================================================================
 // INITIALIZATION

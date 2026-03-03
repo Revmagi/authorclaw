@@ -1390,6 +1390,7 @@ Description: ${description}`;
     let steps: ProjectStep[];
 
     if (template) {
+      console.log(`  Project "${title}": using template "${type}" with ${template.steps.length} steps`);
       steps = template.steps.map((s, i) => ({
         id: `${id}-step-${i + 1}`,
         label: s.label,
@@ -1401,6 +1402,7 @@ Description: ${description}`;
       }));
     } else {
       // Custom project — single step with the user's description
+      console.warn(`  Project "${title}": no template found for type "${type}" — creating single-step project`);
       steps = [{
         id: `${id}-step-1`,
         label: title,

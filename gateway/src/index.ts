@@ -411,29 +411,97 @@ class AuthorClawGateway {
 
         return project.id;
       },
-      // Idle task: do something genuinely helpful when no projects are active
+      // Idle task: run advanced author-focused tasks when no projects are active
       // Runs max once per day, uses free-tier AI only, never destructive
       async () => {
         const idleTasks = [
           {
-            label: 'Writing prompt of the day',
-            prompt: `Generate a creative, inspiring writing prompt for an author. Consider diverse genres and styles. The prompt should:\n- Be specific enough to start writing immediately\n- Include a character, setting, and conflict/situation\n- Be 2-3 sentences max\n- Feel fresh and unexpected, not cliché\n\nReturn ONLY the writing prompt, nothing else.`,
+            label: 'Market trend analysis',
+            prompt: `You are a publishing market analyst with deep expertise in indie and traditional publishing. Perform a detailed market trend analysis:
+
+1. **Bestseller Trends**: Analyze what's working in the top 20 books across romance, thriller, fantasy, and mystery right now. What patterns do you see?
+2. **Emerging Tropes**: Identify 3-5 tropes or subgenres gaining traction (e.g., "cozy fantasy", "morally grey heroes", "romantasy"). Why are they resonating?
+3. **Reader Preferences**: What are readers asking for on BookTok, Goodreads, and reader forums? What gaps exist between what readers want and what's being published?
+4. **Comp Title Spotlight**: For each genre, identify 2-3 recent standout titles and analyze why they're succeeding (cover, hook, timing, positioning).
+5. **Actionable Recommendations**: Suggest 3 specific book concepts that could capitalize on current market gaps. Include logline, genre, target tropes, and why NOW is the right time.
+
+Be specific with titles, author names, and data. Write 600+ words.`,
           },
           {
-            label: 'Daily word count & project report',
-            prompt: `You are AuthorClaw, an autonomous writing agent. Generate a brief daily status report. Include:\n- A motivating observation about writing consistency\n- One specific, actionable writing or productivity tip\n- A suggestion for what the author should work on next (new project, revision pass, etc.)\n\nKeep it under 100 words. Be warm, professional, and action-oriented. Return ONLY the report.`,
+            label: 'Manuscript quality audit scorecard',
+            prompt: `You are a professional developmental editor who has edited 200+ published novels. Generate a comprehensive manuscript quality audit scorecard that an author can use to evaluate their completed manuscript:
+
+**Prose Quality** (1-10): Sentence variety, word choice, voice consistency, show vs tell ratio, purple prose detection, opening hook strength
+- 3 diagnostic questions the author should ask themselves
+
+**Pacing & Structure** (1-10): Scene length variation, tension arc per act, chapter hooks & cliffhangers, dead zone detection, info-dump density, scene-sequel rhythm
+- 3 diagnostic questions
+
+**Dialogue** (1-10): Subtext usage, character voice distinctiveness per speaker, dialogue tag variety, realistic speech patterns, exposition through dialogue
+- 3 diagnostic questions
+
+**Emotional Resonance** (1-10): Character vulnerability, stakes escalation, reader connection points, emotional beat frequency, catharsis delivery
+- 3 diagnostic questions
+
+**Commercial Viability** (1-10): Genre compliance, hook strength, concept clarity, target audience fit, comp title positioning, cover-worthy premise
+- 3 diagnostic questions
+
+Include a scoring interpretation guide: 40-50 = publish-ready, 30-39 = one more pass, 20-29 = needs significant revision, below 20 = developmental edit needed.
+
+Write 800+ words.`,
           },
           {
-            label: 'Story idea brainstorm',
-            prompt: `Brainstorm 3 unique story ideas that would make compelling, commercially viable novels. For each idea provide:\n- A one-line logline\n- The genre and subgenre\n- Target audience\n- What makes it fresh/marketable\n\nFocus on genres with strong commercial potential (romance, thriller, fantasy, mystery). Be creative and specific. No clichés.`,
+            label: 'Backlist optimization report',
+            prompt: `You are a book marketing strategist specializing in indie author backlist optimization. Generate an actionable backlist optimization report:
+
+1. **Blurb Formulas**: Provide 3 proven blurb structures with examples for romance, thriller, and fantasy:
+   - The Hook-Stakes-Promise format
+   - The Question-Tension-Reveal format
+   - The Comparison-Premise-Promise format
+
+2. **Amazon A+ Content Strategy**: What modules convert best? What images work? How to structure comparison charts and from-the-author sections for maximum sales lift.
+
+3. **Keyword Research Method**: Step-by-step process for finding high-volume, low-competition keywords. Include the exact process: Amazon auto-suggest mining, category browsing, comp title keyword extraction.
+
+4. **Category Strategy**: How to select optimal BISAC categories and Amazon browse categories. Which categories have the best visibility-to-competition ratio by genre.
+
+5. **Cover Audit Checklist**: 8-point checklist for evaluating if a book cover meets current genre expectations. What's working NOW vs what worked 2 years ago.
+
+6. **Price Optimization**: When to use 99¢, $2.99, $4.99, $9.99. KU vs wide distribution tradeoffs.
+
+Be specific with actionable steps, not vague advice. Write 700+ words.`,
           },
           {
-            label: 'Romance premise generator',
-            prompt: `Generate a compelling romance novel premise with strong commercial appeal. Include:\n- A catchy one-line hook\n- The romance subgenre (contemporary, historical, paranormal, etc.)\n- Hero and heroine archetypes (e.g., grumpy/sunshine, enemies-to-lovers)\n- The central conflict keeping them apart\n- The setting\n- 3 popular tropes this hits\n\nMake it feel fresh but familiar to romance readers. Return ONLY the premise.`,
+            label: 'Series bible auto-update template',
+            prompt: `You are a continuity editor who has managed 50+ book series. Create a comprehensive, ready-to-use series bible template:
+
+1. **Character Database Template**: For each major character provide fields for: full name, aliases, physical description (height, build, eye color, distinguishing marks), personality traits (3 positive, 3 negative), backstory summary, relationships map, character arc across books, key scenes by book, known inconsistencies to watch.
+
+2. **World-Building Registry**: Locations with sensory descriptions, magic/tech systems with hard rules and costs, political structures, cultural norms, economic systems, timeline of world events, maps/geography notes.
+
+3. **Timeline Tracker**: How to track parallel timelines, time jumps, character ages at each book, seasonal references, date-specific events, pregnancy/growth timelines for children, travel times between locations.
+
+4. **Continuity Checklist**: The 20 most common continuity errors in series fiction: eye color changes, timeline contradictions, forgotten subplots, character name spelling variations, tech/magic system inconsistencies, relationship status confusion, age drift, seasonal impossibilities.
+
+5. **Cross-Reference System**: How to tag and link entries for instant lookup. Template for "every scene with Character X in Location Y" queries.
+
+Provide the actual template structure with 2-3 example entries per section. Write 800+ words.`,
           },
           {
-            label: 'Pipeline health check',
-            prompt: `You are AuthorClaw's maintenance system. Generate a brief system health note with:\n- A reminder to check on any paused or stuck projects\n- A tip for optimizing the book production pipeline\n- A suggestion for maintaining consistency across pen name personas\n\nKeep it under 80 words. Be practical and actionable. Return ONLY the note.`,
+            label: 'Reader response simulation',
+            prompt: `You are a reader psychology expert who studies how different reader types respond to fiction. Generate detailed simulated reader reviews from 5 distinct reader archetypes for a hypothetical recently-published romance novel:
+
+1. **The Superfan** (5 stars, 150 words): Gushing, emotionally invested. Quotes favorite moments. Compares to beloved favorites ("If you loved [X], you'll DEVOUR this"). Begs for sequel. Uses all caps at least once. Mentions staying up too late reading.
+
+2. **The Casual Reader** (3-4 stars, 120 words): Enjoyed it but had minor complaints. Mentions pacing issues in the middle. Liked the characters but found the conflict predictable. Would "recommend with caveats." Finishes with "looking forward to more from this author."
+
+3. **The Harsh Critic** (2 stars, 130 words): Identifies genuine structural weaknesses with specific examples. Compares unfavorably to better books in the genre. Points out crutch words and repetitive descriptions. Acknowledges one thing that worked. Constructive but unsparing.
+
+4. **The Book Blogger** (4 stars, 140 words): Professional tone. Discusses themes, craft, and reader experience. Mentions specific scenes that stood out. Has a "who should read this" section. Rates on multiple axes (writing, characters, plot, steam level, originality).
+
+5. **The Genre Expert** (3-4 stars, 130 words): Evaluates against romance conventions. Discusses trope execution quality. Compares to 3 recent releases in the subgenre. Notes what was fresh vs formulaic. Addresses market positioning.
+
+**What These Reviews Tell You**: After the reviews, provide 5 actionable insights the author should extract from this feedback pattern — what's working, what needs attention, and what to prioritize in the next book. Write 900+ words total.`,
           },
         ];
 
@@ -525,6 +593,14 @@ class AuthorClawGateway {
       res.sendFile(htmlFile, (err) => {
         if (err) res.status(200).json({ status: 'ok', message: 'AuthorClaw running. Dashboard HTML not found.' });
       });
+    });
+
+    // Global JSON error handler — ensures API errors never return HTML
+    this.app.use((err: any, _req: any, res: any, _next: any) => {
+      console.error('Unhandled API error:', err);
+      if (!res.headersSent) {
+        res.status(500).json({ error: String(err?.message || err || 'Internal server error') });
+      }
     });
 
     // Log startup to activity log
@@ -953,6 +1029,175 @@ class AuthorClawGateway {
 
   getActivityLog(): ActivityLog {
     return this.activityLog;
+  }
+
+  /**
+   * Handle slash commands from the dashboard chat.
+   * Mirrors Telegram command logic but returns strings.
+   */
+  async handleDashboardCommand(input: string): Promise<string> {
+    const parts = input.split(/\s+/);
+    const cmd = parts[0].toLowerCase();
+    const args = input.substring(cmd.length).trim();
+    const workspaceDir = join(ROOT_DIR, 'workspace');
+
+    switch (cmd) {
+      case '/help':
+        return [
+          '**Available Commands:**',
+          '`/novel [idea]` — Create a full novel pipeline (all 6 phases)',
+          '`/project [task]` — Create any project (AI plans the steps)',
+          '`/write [idea]` — Quick writing task',
+          '`/projects` — List all projects with status',
+          '`/status` — Check what\'s running',
+          '`/stop` — Pause active project',
+          '`/files [folder]` — List project files',
+          '`/read [# or name]` — Preview a file',
+          '`/export [# or name]` — Export to DOCX',
+          '`/speak [text]` — Generate voice audio',
+          '`/voice [preset]` — Set TTS voice preset',
+          '`/clean` — View workspace usage',
+        ].join('\n');
+
+      case '/novel': {
+        if (!args) return 'Usage: `/novel [your novel idea]`\nExample: `/novel a small-town romance about a baker and a firefighter`';
+        try {
+          const project = this.projectEngine.createNovelPipeline(args, `Write a complete novel: ${args}`);
+          this.activityLog.log({ type: 'project_created', source: 'dashboard', goalId: project.id, message: `Novel pipeline: "${args}" (${project.steps.length} steps)` });
+          return `Novel pipeline created: **"${args}"** (${project.steps.length} steps)\n\nGo to **Projects** to start execution.`;
+        } catch (err) {
+          return `Error creating novel pipeline: ${String(err)}`;
+        }
+      }
+
+      case '/project':
+      case '/goal': {
+        if (!args) return 'Usage: `/project [describe your task]`\nExample: `/project outline a thriller about a rogue AI`';
+        try {
+          const handlers = this.buildTelegramCommandHandlers();
+          const result = await handlers.createProject(args, args);
+          return `Project created: **"${args}"** (${result.steps} steps)\n\nGo to **Projects** to start execution.`;
+        } catch (err) {
+          return `Error: ${String(err)}`;
+        }
+      }
+
+      case '/write': {
+        if (!args) return 'Usage: `/write [what to write]`\nExample: `/write a snarky YouTube intro for my channel`';
+        try {
+          const handlers = this.buildTelegramCommandHandlers();
+          const result = await handlers.createProject(args, args);
+          return `Writing project created: **"${args}"** (${result.steps} steps)\n\nGo to **Projects** to start execution.`;
+        } catch (err) {
+          return `Error: ${String(err)}`;
+        }
+      }
+
+      case '/projects':
+      case '/goals': {
+        const projects = this.projectEngine.listProjects();
+        if (projects.length === 0) return 'No projects yet. Create one with `/project [task]` or use the **Projects** panel.';
+        const lines = projects.map(p => {
+          const status = p.status === 'completed' ? '✅' : p.status === 'active' ? '🔄' : '⏸️';
+          return `${status} **${p.title}** — ${p.progress}% (${p.steps.filter((s: any) => s.status === 'completed').length}/${p.steps.length} steps)`;
+        });
+        return `**Projects (${projects.length}):**\n\n${lines.join('\n')}`;
+      }
+
+      case '/status': {
+        const projects = this.projectEngine.listProjects();
+        const active = projects.filter(p => p.status === 'active');
+        const autoStatus = this.heartbeat.getAutonomousStatus();
+        let status = `**AuthorClaw Status**\n`;
+        status += `Projects: ${projects.length} total, ${active.length} active\n`;
+        status += `Agent: ${autoStatus.enabled ? (autoStatus.running ? 'WORKING' : 'ON') : 'OFF'}\n`;
+        if (active.length > 0) {
+          const current = active[0];
+          const currentStep = current.steps.find((s: any) => s.status === 'active');
+          status += `\nActive: **${current.title}** (${current.progress}%)\n`;
+          if (currentStep) status += `Current step: ${currentStep.label}`;
+        }
+        return status;
+      }
+
+      case '/stop':
+      case '/pause': {
+        const projects = this.projectEngine.listProjects();
+        const active = projects.find(p => p.status === 'active');
+        if (!active) return 'No active project to pause.';
+        this.projectEngine.pauseProject(active.id);
+        return `⏸️ Paused **"${active.title}"** at ${active.progress}%. Say \`continue\` to resume.`;
+      }
+
+      case '/files': {
+        const projectsDir = join(workspaceDir, 'projects');
+        try {
+          const { readdirSync, statSync } = await import('fs');
+          if (!existsSync(projectsDir)) return 'No project files yet.';
+          const dirs = readdirSync(projectsDir).filter(d => statSync(join(projectsDir, d)).isDirectory());
+          if (dirs.length === 0) return 'No project files yet.';
+          const lines = dirs.map((d, i) => {
+            const files = readdirSync(join(projectsDir, d));
+            return `${i + 1}. **${d}/** (${files.length} files)`;
+          });
+          return `**Project Files:**\n\n${lines.join('\n')}\n\nUse the **Library** panel to browse and download files.`;
+        } catch {
+          return 'Could not read project files.';
+        }
+      }
+
+      case '/speak': {
+        if (!args) return 'Usage: `/speak [text]` — Generate voice audio\nExample: `/speak Hello, I am your writing assistant`';
+        if (!this.tts) return 'TTS service not available.';
+        try {
+          const result = await this.tts.generate(args, {});
+          return `Voice generated! Audio saved to: \`${result.file || 'workspace/audio/'}\`\n\nDownload from the **Library** panel.`;
+        } catch (err) {
+          return `Voice generation failed: ${String(err)}`;
+        }
+      }
+
+      case '/voice': {
+        if (!this.tts) return 'TTS service not available.';
+        const presets = ['narrator_female', 'narrator_male', 'narrator_deep', 'narrator_warm', 'british_male', 'british_female', 'storyteller', 'dramatic'];
+        if (!args) {
+          return `**Voice Presets:**\n\n${presets.map(p => `• \`${p}\``).join('\n')}\n\nUsage: \`/voice narrator_warm\` to set your default voice.`;
+        }
+        if (presets.includes(args.toLowerCase())) {
+          try {
+            await this.tts.setVoice(args.toLowerCase());
+            return `Voice set to **${args}**.`;
+          } catch {
+            return `Could not set voice to "${args}".`;
+          }
+        }
+        return `Unknown voice preset "${args}". Available: ${presets.join(', ')}`;
+      }
+
+      case '/clean': {
+        try {
+          const { readdirSync, statSync } = await import('fs');
+          if (!existsSync(workspaceDir)) return 'Workspace is empty.';
+          const subdirs = ['projects', 'exports', 'documents', 'audio', 'research'];
+          const lines = subdirs.map(d => {
+            const dir = join(workspaceDir, d);
+            if (!existsSync(dir)) return `📁 **${d}/**: empty`;
+            try {
+              const files = readdirSync(dir, { recursive: true });
+              return `📁 **${d}/**: ${files.length} files`;
+            } catch {
+              return `📁 **${d}/**: ?`;
+            }
+          });
+          return `**Workspace Usage:**\n\n${lines.join('\n')}`;
+        } catch {
+          return 'Could not read workspace.';
+        }
+      }
+
+      default:
+        return `Unknown command: \`${cmd}\`. Type \`/help\` for available commands.`;
+    }
   }
 
   isTelegramConnected(): boolean {

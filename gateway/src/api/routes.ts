@@ -69,7 +69,17 @@ export function createAPIRoutes(app: Application, gateway: any, rootDir?: string
       return res.status(400).json({ error: 'Message too long (max 10,000 chars)' });
     }
 
-    // Use 'conductor' channel when skipHistory is set (prevents chapter dumps in Telegram)
+    // Slash commands: route to dedicated command handler instead of AI
+    if (message.startsWith('/')) {
+      try {
+        const result = await gateway.handleDashboardCommand(message);
+        return res.json({ response: result });
+      } catch (err: any) {
+        return res.json({ response: 'Command error: ' + String(err?.message || err) });
+      }
+    }
+
+    // Regular chat: use AI
     const channel = skipHistory ? 'conductor' : 'api';
     let response = '';
     try {
@@ -492,6 +502,7 @@ export function createAPIRoutes(app: Application, gateway: any, rootDir?: string
     }
 
     // Novel pipeline: use dedicated pipeline builder
+    // Trust the explicitly-sent type; only infer from description if no type provided
     const inferredType = type || engine.inferProjectType(description);
     if (inferredType === 'novel-pipeline') {
       const project = engine.createNovelPipeline(title, description, config || context);
@@ -1469,6 +1480,46 @@ export function createAPIRoutes(app: Application, gateway: any, rootDir?: string
     createReadStream(filePath).pipe(res);
   });
 
+  // ── Export single file as DOCX ──
+  app.post('/api/projects/:id/export-docx', async (req: Request, res: Response) => {
+    const engine = gateway.getProjectEngine?.();
+    if (!engine) return res.status(503).json({ error: 'Project engine not initialized' });
+    const project = engine.getProject(req.params.id);
+    if (!project) return res.status(404).json({ error: 'Project not found' });
+
+    const { filename } = req.body;
+    if (!filename) return res.status(400).json({ error: 'filename is required' });
+
+    const { join: j, resolve: rv } = await import('path');
+    const { readFile: rf, writeFile: wf } = await import('fs/promises');
+    const { existsSync: ex } = await import('fs');
+
+    const projectSlug = project.title.toLowerCase().replace(/[^a-z0-9]+/g, '-');
+    const projectDir = j(baseDir, 'workspace', 'projects', projectSlug);
+    const sourcePath = rv(projectDir, String(filename));
+
+    if (!sourcePath.startsWith(rv(projectDir)) || !ex(sourcePath)) {
+      return res.status(404).json({ error: 'Source file not found' });
+    }
+
+    try {
+      const content = await rf(sourcePath, 'utf-8');
+      const docxName = String(filename).replace(/\.md$/i, '.docx');
+      const docxBuffer = await generateDocxBuffer({
+        title: project.title,
+        author: 'Author',
+        content,
+      });
+      await wf(j(projectDir, docxName), docxBuffer);
+      res.json({
+        success: true,
+        downloadUrl: `/api/projects/${req.params.id}/download/${encodeURIComponent(docxName)}`,
+      });
+    } catch (err) {
+      res.status(500).json({ error: 'DOCX export failed: ' + String(err) });
+    }
+  });
+
   // ── Compile Manuscript (combine all chapter files into one) ──
 
   app.post('/api/projects/:id/compile', async (req: Request, res: Response) => {
@@ -1906,7 +1957,8 @@ ${sourceCode.substring(0, 15000)}
     if (!persona) return res.status(404).json({ error: 'Persona not found' });
 
     try {
-      const provider = services.aiRouter.selectProvider('general');
+      const provider = services.aiRouter?.selectProvider('general');
+      if (!provider) return res.status(503).json({ error: 'No AI provider available. Configure an API key in Settings first.' });
       const result = await services.aiRouter.complete({
         provider: provider.id,
         system: 'You are a publishing industry expert who creates compelling author bios.',
@@ -1935,7 +1987,8 @@ ${sourceCode.substring(0, 15000)}
     if (!genre) return res.status(400).json({ error: 'genre is required' });
 
     try {
-      const provider = services.aiRouter.selectProvider('general');
+      const provider = services.aiRouter?.selectProvider('general');
+      if (!provider) return res.status(503).json({ error: 'No AI provider available. Configure an API key in Settings first.' });
       const result = await services.aiRouter.complete({
         provider: provider.id,
         system: 'You are a publishing industry expert. Return ONLY valid JSON, no markdown.',
