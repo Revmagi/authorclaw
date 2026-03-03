@@ -1558,6 +1558,91 @@ function showProjectList() {
   document.getElementById('projectDetailView').style.display = 'none';
 }
 
+// Map project types to logical next phases
+function getContinuationOptions(type) {
+  var map = {
+    'book-planning': [
+      { type: 'book-bible', label: 'Book Bible', desc: 'World-building, characters, continuity' },
+      { type: 'book-production', label: 'Book Production', desc: 'Write chapters with full context' },
+    ],
+    'book-bible': [
+      { type: 'book-production', label: 'Book Production', desc: 'Write chapters with full context' },
+    ],
+    'book-production': [
+      { type: 'deep-revision', label: 'Deep Revision', desc: '21-step editing: macro, scene, line-level' },
+    ],
+    'deep-revision': [
+      { type: 'format-export', label: 'Format & Export', desc: 'Front/back matter, DOCX, EPUB' },
+    ],
+    'format-export': [
+      { type: 'book-launch', label: 'Book Launch', desc: 'Blurb, Amazon desc, keywords, ad copy' },
+    ],
+  };
+  return map[type] || [
+    { type: 'book-bible', label: 'Book Bible', desc: 'World-building, characters, continuity' },
+    { type: 'book-production', label: 'Book Production', desc: 'Write chapters with full context' },
+    { type: 'deep-revision', label: 'Deep Revision', desc: '21-step editing passes' },
+    { type: 'format-export', label: 'Format & Export', desc: 'DOCX, EPUB export' },
+    { type: 'book-launch', label: 'Book Launch', desc: 'Blurb, keywords, ad copy' },
+  ];
+}
+
+// Continue a completed project into the next phase
+function continueProjectToPhase(sourceProject, targetType) {
+  // Build context from completed project steps
+  var stepSummaries = [];
+  if (sourceProject.steps) {
+    sourceProject.steps.forEach(function(s) {
+      if (s.status === 'completed' && (s.output || s.result)) {
+        var output = (s.output || s.result || '').substring(0, 2000);
+        stepSummaries.push('## ' + (s.label || 'Step') + '\n' + output);
+      }
+    });
+  }
+
+  var contextDesc = 'Continuing from completed project: "' + sourceProject.title + '" (' + (sourceProject.type || 'general') + ')\n\n' +
+    'Use the following output from the previous phase as your foundation:\n\n' +
+    stepSummaries.join('\n\n---\n\n');
+
+  var body = {
+    title: sourceProject.title,
+    description: contextDesc.substring(0, 30000),
+    type: targetType,
+    personaId: sourceProject.personaId || (sourceProject.persona && typeof sourceProject.persona === 'object' ? sourceProject.persona.id : undefined),
+  };
+
+  showToast('Creating ' + targetType + ' project...', 'info');
+  api('POST', '/api/projects/create', body).then(function(data) {
+    var projectId = data.project && data.project.id;
+    if (projectId) {
+      showToast('Project created! Starting execution...', 'success');
+      loadProjects();
+      setTimeout(function() {
+        openProjectDetail(projectId);
+        api('POST', '/api/projects/' + projectId + '/auto-execute').then(function(result) {
+          var completed = (result.results || []).filter(function(r) { return r.success; }).length;
+          showToast('Done! ' + completed + ' steps completed.', 'success');
+          loadProjects();
+          if (currentDetailProject === projectId) openProjectDetail(projectId);
+        }).catch(function(err) {
+          showToast('Execution error: ' + err.message, 'error');
+          loadProjects();
+        });
+        var pollId = setInterval(function() {
+          loadProjects();
+          if (currentDetailProject === projectId) openProjectDetail(projectId);
+        }, 8000);
+        setTimeout(function() { clearInterval(pollId); }, 600000);
+      }, 500);
+    } else {
+      showToast('Project created!', 'success');
+      loadProjects();
+    }
+  }).catch(function(e) {
+    showToast('Failed: ' + e.message, 'error');
+  });
+}
+
 function openProjectDetail(id) {
   var project = allProjects.find(function(p) { return p.id === id; });
   if (!project) { showToast('Project not found', 'error'); return; }
@@ -1601,6 +1686,24 @@ function openProjectDetail(id) {
     actionsHtml += '<button class="success" id="pdResume">Resume</button> ';
   }
   actionsHtml += '<button id="pdCompile">Compile Manuscript</button> ';
+
+  // "Continue to..." button for completed projects
+  if (project.status === 'completed') {
+    var nextPhases = getContinuationOptions(project.type);
+    if (nextPhases.length > 0) {
+      actionsHtml += '<div style="display:inline-block;position:relative;">' +
+        '<button class="success" id="pdContinue">Continue to &rarr;</button>' +
+        '<div id="pdContinueMenu" class="continue-menu" style="display:none;position:absolute;bottom:100%;left:0;background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:6px 0;min-width:220px;z-index:100;box-shadow:0 4px 12px rgba(0,0,0,0.3);">';
+      nextPhases.forEach(function(phase) {
+        actionsHtml += '<div class="continue-option" data-type="' + esc(phase.type) + '" style="padding:8px 16px;cursor:pointer;font-size:13px;">' +
+          '<strong>' + esc(phase.label) + '</strong><br>' +
+          '<span style="font-size:11px;color:var(--muted);">' + esc(phase.desc) + '</span>' +
+        '</div>';
+      });
+      actionsHtml += '</div></div> ';
+    }
+  }
+
   actionsHtml += '<button class="danger" id="pdDelete">Delete Project</button>';
 
   detail.innerHTML =
@@ -1644,6 +1747,31 @@ function openProjectDetail(id) {
   if (pdDelete) pdDelete.addEventListener('click', function() { deleteProject(id); });
   var pdCompile = detail.querySelector('#pdCompile');
   if (pdCompile) pdCompile.addEventListener('click', function() { compileProject(id); });
+
+  // Wire "Continue to..." button
+  var pdContinue = detail.querySelector('#pdContinue');
+  if (pdContinue) {
+    pdContinue.addEventListener('click', function(e) {
+      e.stopPropagation();
+      var menu = detail.querySelector('#pdContinueMenu');
+      menu.style.display = menu.style.display === 'none' ? 'block' : 'none';
+    });
+    detail.querySelectorAll('.continue-option').forEach(function(opt) {
+      opt.addEventListener('mouseenter', function() { opt.style.background = 'var(--hover)'; });
+      opt.addEventListener('mouseleave', function() { opt.style.background = 'none'; });
+      opt.addEventListener('click', function(e) {
+        e.stopPropagation();
+        detail.querySelector('#pdContinueMenu').style.display = 'none';
+        continueProjectToPhase(project, opt.getAttribute('data-type'));
+      });
+    });
+    // Close menu on outside click
+    document.addEventListener('click', function closeMenu() {
+      var menu = detail.querySelector('#pdContinueMenu');
+      if (menu) menu.style.display = 'none';
+      document.removeEventListener('click', closeMenu);
+    });
+  }
 
   // Wire step output toggle
   detail.querySelectorAll('.step-item').forEach(function(item) {

@@ -90,7 +90,7 @@ export class TTSService {
     },
     snarky_nerd: {
       id: 'snarky_nerd',
-      voice: 'en-US-DavisNeural',
+      voice: 'en-US-EricNeural',
       description: 'Snarky, nerdy male — witty banter, smart humor, sci-fi',
       gender: 'Male',
     },
