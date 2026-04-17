@@ -42,6 +42,9 @@ import { ContextEngine } from './services/context-engine.js';
 import { LessonStore } from './services/lessons.js';
 import { PreferenceStore } from './services/preferences.js';
 import { OrchestratorService } from './services/orchestrator.js';
+import { KDPExporter } from './services/kdp-exporter.js';
+import { BetaReaderService } from './services/beta-reader.js';
+import { DialogueAuditor } from './services/dialogue-auditor.js';
 import { TelegramBridge } from './bridges/telegram.js';
 import { DiscordBridge } from './bridges/discord.js';
 import { createAPIRoutes } from './api/routes.js';
@@ -89,11 +92,25 @@ class AuthorClawGateway {
   private lessons!: LessonStore;
   private preferences!: PreferenceStore;
   private orchestrator!: OrchestratorService;
+  private kdpExporter!: KDPExporter;
+  private betaReader!: BetaReaderService;
+  private dialogueAuditor!: DialogueAuditor;
   private telegram?: TelegramBridge;
   private discord?: DiscordBridge;
 
   // State
-  private conversationHistory: Array<{ role: string; content: string; timestamp: Date }> = [];
+  // Conversation history keyed by channel/session to prevent cross-contamination
+  // between Telegram users, web chat, and API callers.
+  private conversationHistories: Map<string, Array<{ role: string; content: string; timestamp: Date }>> = new Map();
+
+  private getHistory(channel: string): Array<{ role: string; content: string; timestamp: Date }> {
+    let history = this.conversationHistories.get(channel);
+    if (!history) {
+      history = [];
+      this.conversationHistories.set(channel, history);
+    }
+    return history;
+  }
 
   constructor() {
     this.app = express();
@@ -163,8 +180,11 @@ class AuthorClawGateway {
     console.log('  ✓ Memory system initialized');
 
     // ── Phase 4: AI Providers ──
-    this.costs = new CostTracker(this.config.get('costs'));
-    console.log(`  ✓ Budget: $${this.costs.dailyLimit}/day, $${this.costs.monthlyLimit}/month`);
+    const costsConfig = this.config.get('costs') || {};
+    costsConfig.persistPath = join(ROOT_DIR, 'workspace', 'costs.json');
+    this.costs = new CostTracker(costsConfig);
+    await this.costs.initialize();
+    console.log(`  ✓ Budget: $${this.costs.dailyLimit}/day, $${this.costs.monthlyLimit}/month (persisted)`);
 
     this.aiRouter = new AIRouter(this.config.get('ai'), this.vault, this.costs);
     await this.aiRouter.initialize();
@@ -293,6 +313,12 @@ class AuthorClawGateway {
     console.log(`  ✓ Orchestrator: ${scriptCount} script(s) configured`);
     await this.orchestrator.autoStartAll();
     this.orchestrator.startHealthCheck();
+
+    // ── Phase 6i: Author-facing export & feedback services ──
+    this.kdpExporter = new KDPExporter();
+    this.betaReader = new BetaReaderService();
+    this.dialogueAuditor = new DialogueAuditor();
+    console.log('  ✓ KDP exporter, beta reader, dialogue auditor ready');
 
     // ── Phase 7: Heartbeat ──
     this.heartbeat = new HeartbeatService(this.config.get('heartbeat'), this.memory);
@@ -731,16 +757,20 @@ class AuthorClawGateway {
     // Project steps use their own context chain, not the chat history
     const isProjectChannel = channel === 'projects' || channel === 'project-engine' || channel === 'goal-engine';
     const skipHistory = isProjectChannel || channel === 'conductor' || channel === 'api-silent';
+    // Per-channel conversation history prevents cross-contamination between
+    // Telegram users, web chat, and API callers.
+    const history = this.getHistory(channel);
     if (!skipHistory) {
-      this.conversationHistory.push({
+      history.push({
         role: 'user',
         content,
         timestamp: new Date(),
       });
 
       const maxHistory = this.config.get('ai.maxHistoryMessages', 20);
-      if (this.conversationHistory.length > maxHistory * 2) {
-        this.conversationHistory = this.conversationHistory.slice(-maxHistory * 2);
+      if (history.length > maxHistory * 2) {
+        // Splice in place so the Map entry stays referenced.
+        history.splice(0, history.length - maxHistory * 2);
       }
     }
 
@@ -749,7 +779,7 @@ class AuthorClawGateway {
     // Chat messages include conversation history for continuity
     const messages = isProjectChannel
       ? [{ role: 'user' as const, content }]
-      : this.conversationHistory.map(m => ({
+      : history.map(m => ({
           role: m.role as 'user' | 'assistant',
           content: m.content,
         }));
@@ -763,7 +793,7 @@ class AuthorClawGateway {
       });
 
       if (!skipHistory) {
-        this.conversationHistory.push({
+        history.push({
           role: 'assistant',
           content: response.text,
           timestamp: new Date(),
@@ -771,7 +801,7 @@ class AuthorClawGateway {
       }
 
       await this.memory.process(content, response.text);
-      this.costs.record(provider.id, response.tokensUsed);
+      this.costs.record(provider.id, response.tokensUsed, response.estimatedCost);
       this.heartbeat.recordActivity('message', { channel });
 
       // Log to activity
@@ -819,7 +849,7 @@ class AuthorClawGateway {
             messages,
           });
           if (!skipHistory) {
-            this.conversationHistory.push({
+            history.push({
               role: 'assistant',
               content: response.text,
               timestamp: new Date(),
@@ -1048,6 +1078,9 @@ class AuthorClawGateway {
       lessons: this.lessons,
       preferences: this.preferences,
       orchestrator: this.orchestrator,
+      kdpExporter: this.kdpExporter,
+      betaReader: this.betaReader,
+      dialogueAuditor: this.dialogueAuditor,
     };
   }
 

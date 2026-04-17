@@ -206,8 +206,17 @@ export function createAPIRoutes(app: Application, gateway: any, rootDir?: string
     // Register this client for live updates
     const cleanup = activityLog.addSSEClient(res);
 
+    // Periodic keepalive so proxies/browsers don't close the idle connection.
+    // Comment lines (prefixed ":") are ignored by EventSource but count as traffic.
+    const keepalive = setInterval(() => {
+      try { res.write(': ping\n\n'); } catch { /* connection already closed */ }
+    }, 15000);
+
     // Clean up on disconnect
-    req.on('close', cleanup);
+    req.on('close', () => {
+      clearInterval(keepalive);
+      cleanup();
+    });
   });
 
   // ═══════════════════════════════════════════════════════════
@@ -348,9 +357,14 @@ export function createAPIRoutes(app: Application, gateway: any, rootDir?: string
 
   // Delete a key from the vault
   app.delete('/api/vault/:key', async (req: Request, res: Response) => {
-    const deleted = await services.vault.delete(req.params.key);
+    const key = String(req.params.key || '');
+    // Same validation as POST — only allow alphanumeric + underscore/hyphen.
+    if (!/^[a-zA-Z0-9_-]+$/.test(key) || key.length < 1 || key.length > 100) {
+      return res.status(400).json({ error: 'Invalid key name' });
+    }
+    const deleted = await services.vault.delete(key);
     if (deleted) {
-      await services.audit.log('vault', 'key_deleted', { key: req.params.key });
+      await services.audit.log('vault', 'key_deleted', { key });
     }
     res.json({ success: deleted });
   });
@@ -3002,5 +3016,187 @@ ${sourceCode.substring(0, 15000)}
     const removed = await orch.removeScript(req.params.id);
     if (!removed) return res.status(404).json({ error: 'Script not found' });
     res.json({ success: true });
+  });
+
+  // ═══════════════════════════════════════════════════════════
+  // KDP Blurb Export
+  // ═══════════════════════════════════════════════════════════
+
+  // Export an arbitrary blurb (doesn't require a project)
+  app.post('/api/kdp/export-blurb', (req: Request, res: Response) => {
+    const exporter = services.kdpExporter;
+    if (!exporter) return res.status(503).json({ error: 'KDP exporter not initialized' });
+    const { blurb } = req.body || {};
+    if (!blurb || typeof blurb !== 'string') {
+      return res.status(400).json({ error: 'blurb (string) required' });
+    }
+    try {
+      const result = exporter.exportBlurb(blurb);
+      res.json(result);
+    } catch (err: any) {
+      res.status(500).json({ error: err.message || 'Export failed' });
+    }
+  });
+
+  // ═══════════════════════════════════════════════════════════
+  // Beta Reader + Dialogue Auditor
+  // ═══════════════════════════════════════════════════════════
+
+  // Helper: gather completed writing-phase chapters for a project.
+  async function gatherChapters(project: any): Promise<Array<{ id: string; number: number; title: string; text: string }>> {
+    const { join: j } = await import('path');
+    const { readFile: rf } = await import('fs/promises');
+    const { existsSync: ex } = await import('fs');
+
+    const projectSlug = project.title.toLowerCase().replace(/[^a-z0-9]+/g, '-');
+    const projectDir = j(baseDir, 'workspace', 'projects', projectSlug);
+
+    const writingSteps = project.steps
+      .filter((s: any) => (s.phase === 'writing' || s.label?.toLowerCase().includes('chapter')) && s.status === 'completed')
+      .sort((a: any, b: any) => (a.chapterNumber || 0) - (b.chapterNumber || 0));
+
+    const chapters: Array<{ id: string; number: number; title: string; text: string }> = [];
+    for (const ws of writingSteps) {
+      let text = ws.result || '';
+      // If no inline result, try reading from disk.
+      if (!text && ex(projectDir)) {
+        const expectedFile = `${ws.id}-${ws.label.toLowerCase().replace(/[^a-z0-9]+/g, '-')}.md`;
+        const fullPath = j(projectDir, expectedFile);
+        if (ex(fullPath)) {
+          const raw = await rf(fullPath, 'utf-8');
+          text = raw.replace(/^# .+\n\n/, '');
+        }
+      }
+      if (text && text.length > 200) {
+        chapters.push({
+          id: ws.id,
+          number: ws.chapterNumber || chapters.length + 1,
+          title: ws.label,
+          text,
+        });
+      }
+    }
+    return chapters;
+  }
+
+  // Get available beta reader archetypes
+  app.get('/api/beta-reader/archetypes', (_req: Request, res: Response) => {
+    const beta = services.betaReader;
+    if (!beta) return res.json({ archetypes: [] });
+    res.json({ archetypes: beta.getArchetypes() });
+  });
+
+  // Run beta reader panel on a project (async — uses SSE/socket for progress)
+  app.post('/api/projects/:id/beta-reader', async (req: Request, res: Response) => {
+    const beta = services.betaReader;
+    if (!beta) return res.status(503).json({ error: 'Beta reader not initialized' });
+
+    const engine = gateway.getProjectEngine?.();
+    const project = engine?.getProject(req.params.id);
+    if (!project) return res.status(404).json({ error: 'Project not found' });
+
+    const chapters = await gatherChapters(project);
+    if (chapters.length === 0) {
+      return res.status(400).json({ error: 'No completed chapters found. Write some chapters first.' });
+    }
+
+    const archetypes = Array.isArray(req.body?.archetypes) && req.body.archetypes.length > 0
+      ? req.body.archetypes
+      : undefined;
+
+    // Respond immediately — client subscribes to progress via socket.
+    res.json({ status: 'started', chapters: chapters.length, archetypes: (archetypes || beta.getArchetypes()).length });
+
+    const aiCompleteFn = (r: any) => services.aiRouter.complete(r);
+    const aiSelectFn = (t: string) => services.aiRouter.selectProvider(t);
+
+    (async () => {
+      try {
+        const report = await beta.scanManuscript(
+          project.id, chapters, aiCompleteFn, aiSelectFn, archetypes,
+          (msg: string) => {
+            try { (gateway as any).io?.emit?.('beta-reader-progress', { projectId: project.id, message: msg }); } catch {}
+          }
+        );
+        // Store the report alongside context data.
+        try {
+          const { join: j } = await import('path');
+          const { writeFile: wf, mkdir: mkd } = await import('fs/promises');
+          const dir = j(baseDir, 'workspace', 'beta-reports');
+          await mkd(dir, { recursive: true });
+          await wf(j(dir, `${project.id}.json`), JSON.stringify(report, null, 2));
+        } catch { /* non-fatal */ }
+        try { (gateway as any).io?.emit?.('beta-reader-complete', { projectId: project.id, report }); } catch {}
+      } catch (err: any) {
+        try { (gateway as any).io?.emit?.('beta-reader-error', { projectId: project.id, error: err?.message || String(err) }); } catch {}
+      }
+    })();
+  });
+
+  // Get the stored beta-reader report
+  app.get('/api/projects/:id/beta-reader/report', async (req: Request, res: Response) => {
+    const { join: j } = await import('path');
+    const { readFile: rf } = await import('fs/promises');
+    const { existsSync: ex } = await import('fs');
+    const file = j(baseDir, 'workspace', 'beta-reports', `${req.params.id}.json`);
+    if (!ex(file)) return res.json({ report: null });
+    try {
+      const raw = await rf(file, 'utf-8');
+      res.json({ report: JSON.parse(raw) });
+    } catch (err: any) {
+      res.status(500).json({ error: err?.message || 'Could not read report' });
+    }
+  });
+
+  // Run dialogue audit on a project
+  app.post('/api/projects/:id/dialogue-audit', async (req: Request, res: Response) => {
+    const auditor = services.dialogueAuditor;
+    if (!auditor) return res.status(503).json({ error: 'Dialogue auditor not initialized' });
+
+    const engine = gateway.getProjectEngine?.();
+    const project = engine?.getProject(req.params.id);
+    if (!project) return res.status(404).json({ error: 'Project not found' });
+
+    const chapters = await gatherChapters(project);
+    if (chapters.length === 0) {
+      return res.status(400).json({ error: 'No completed chapters found.' });
+    }
+
+    // Combine all chapters then audit across the whole manuscript.
+    const combined = chapters.map(c => `# ${c.title}\n\n${c.text}`).join('\n\n');
+    try {
+      const report = auditor.audit(combined, project.id);
+      res.json({ report });
+    } catch (err: any) {
+      res.status(500).json({ error: err?.message || 'Audit failed' });
+    }
+  });
+
+  // Export the active blurb from a project's compiled output, if present
+  app.post('/api/projects/:id/export-blurb', async (req: Request, res: Response) => {
+    const exporter = services.kdpExporter;
+    if (!exporter) return res.status(503).json({ error: 'KDP exporter not initialized' });
+
+    const engine = gateway.getProjectEngine?.();
+    const project = engine?.getProject(req.params.id);
+    if (!project) return res.status(404).json({ error: 'Project not found' });
+
+    // Priority: req.body.blurb > the most recent step whose label contains "blurb"
+    let blurb: string | undefined = req.body?.blurb;
+    if (!blurb) {
+      const blurbStep = [...project.steps].reverse().find((s: any) =>
+        /blurb|description/i.test(s.label) && s.status === 'completed' && s.result
+      );
+      blurb = blurbStep?.result;
+    }
+    if (!blurb) {
+      return res.status(400).json({ error: 'No blurb found. Pass { blurb: "..." } or run the blurb-writer skill first.' });
+    }
+    try {
+      const result = exporter.exportBlurb(blurb);
+      res.json(result);
+    } catch (err: any) {
+      res.status(500).json({ error: err.message || 'Export failed' });
+    }
   });
 }

@@ -3,7 +3,7 @@
  * Constrains all file operations to the workspace directory
  */
 
-import { resolve, relative } from 'path';
+import { resolve, relative, sep } from 'path';
 
 export class SandboxGuard {
   private workspaceRoot: string;
@@ -24,11 +24,23 @@ export class SandboxGuard {
    */
   validatePath(targetPath: string): { valid: boolean; reason?: string; resolved?: string } {
     const resolved = resolve(this.workspaceRoot, targetPath);
-    const rel = relative(this.workspaceRoot, resolved);
 
-    // Check it's within workspace
-    if (rel.startsWith('..') || resolve(resolved) !== resolved.replace(/\/$/, '')) {
+    // Check it's within the workspace. Compare resolved paths directly using
+    // the platform separator — this correctly catches all traversal including
+    // symlinks and trailing-slash edge cases. The old compound check was a
+    // tautology that collapsed to `rel.startsWith('..')`, missing some cases.
+    const rootWithSep = this.workspaceRoot.endsWith(sep)
+      ? this.workspaceRoot
+      : this.workspaceRoot + sep;
+    if (resolved !== this.workspaceRoot && !resolved.startsWith(rootWithSep)) {
       return { valid: false, reason: 'Path escapes workspace boundary' };
+    }
+
+    // Also reject any path with literal '..' segments in the untrusted input
+    // (handles cases where resolve() might normalize them away on some platforms).
+    const rel = relative(this.workspaceRoot, resolved);
+    if (rel.split(sep).some(seg => seg === '..')) {
+      return { valid: false, reason: 'Path contains traversal segments' };
     }
 
     // Check forbidden patterns

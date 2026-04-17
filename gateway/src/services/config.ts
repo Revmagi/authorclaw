@@ -49,7 +49,16 @@ export class ConfigService {
     const parts = path.split('.');
     let current = this.config;
     for (let i = 0; i < parts.length - 1; i++) {
-      if (!current[parts[i]]) current[parts[i]] = {};
+      const existing = current[parts[i]];
+      if (existing === undefined || existing === null) {
+        current[parts[i]] = {};
+      } else if (typeof existing !== 'object' || Array.isArray(existing)) {
+        // Refuse to drill into a primitive / array — prevents silent data loss
+        // when someone calls set('server.port', 3000) but server is a string.
+        throw new Error(
+          `Cannot set '${path}': '${parts.slice(0, i + 1).join('.')}' is a ${typeof existing}, not an object.`
+        );
+      }
       current = current[parts[i]];
     }
     current[parts[parts.length - 1]] = value;
