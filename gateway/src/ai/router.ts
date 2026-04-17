@@ -258,15 +258,23 @@ export class AIRouter {
   }
 
   /**
-   * Get fallback provider if primary fails
+   * Get fallback provider if primary fails.
+   * Respects the budget cap — skips paid providers when the user is over budget,
+   * preferring free providers (Ollama, Gemini free tier) instead.
    */
   getFallbackProvider(currentId: string): AIProvider | null {
+    const overBudget = this.costs?.isOverBudget?.() ?? false;
+    // Prefer free providers first so we don't silently burn budget on fallback.
+    const freeProviders: AIProvider[] = [];
+    const paidProviders: AIProvider[] = [];
     for (const [id, provider] of this.providers) {
-      if (id !== currentId && provider.available) {
-        return provider;
-      }
+      if (id === currentId || !provider.available) continue;
+      if (provider.tier === 'free') freeProviders.push(provider);
+      else paidProviders.push(provider);
     }
-    return null;
+    if (freeProviders.length > 0) return freeProviders[0];
+    if (overBudget) return null; // Over budget and no free provider — fail closed.
+    return paidProviders[0] ?? null;
   }
 
   /**

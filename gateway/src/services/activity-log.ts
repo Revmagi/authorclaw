@@ -51,11 +51,17 @@ export interface ActivityEntry {
   };
 }
 
-// Keys that look like API secrets — strip from logged metadata
+// Keys that look like API secrets — strip from logged metadata.
+// Note: "token" alone is NOT matched because legitimate telemetry keys like
+// `tokens`, `tokensUsed`, `inputTokens` are token *counts*, not secrets.
 const SECRET_PATTERNS = [
   /api[_-]?key/i,
   /secret/i,
-  /token/i,
+  /auth[_-]?token/i,
+  /access[_-]?token/i,
+  /refresh[_-]?token/i,
+  /bearer[_-]?token/i,
+  /bot[_-]?token/i,
   /password/i,
   /credential/i,
   /sk-[a-zA-Z0-9]{20,}/,

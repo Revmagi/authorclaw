@@ -113,18 +113,32 @@ export class MemoryService {
     await appendFile(logPath, entry);
   }
 
+  /** Sanitize a path segment — strip traversal, separators, and null bytes. */
+  private sanitizeSegment(segment: string, fallback: string): string {
+    const cleaned = String(segment || '')
+      .replace(/[\x00-\x1f]/g, '')
+      .replace(/[\\/:*?"<>|]/g, '_')
+      .replace(/\.\.+/g, '_')
+      .replace(/^\.+/, '')
+      .slice(0, 200);
+    return cleaned || fallback;
+  }
+
   async setActiveProject(projectId: string): Promise<void> {
-    this.activeProjectPath = projectId;
+    const safeId = this.sanitizeSegment(projectId, 'project');
+    this.activeProjectPath = safeId;
     await writeFile(
       join(this.memoryDir, 'active-project.txt'),
-      projectId
+      safeId
     );
   }
 
   async saveBookBibleEntry(projectId: string, filename: string, content: string): Promise<void> {
-    const dir = join(this.memoryDir, 'book-bible', projectId);
+    const safeProject = this.sanitizeSegment(projectId, 'project');
+    const safeFile = this.sanitizeSegment(filename, 'entry.md');
+    const dir = join(this.memoryDir, 'book-bible', safeProject);
     await mkdir(dir, { recursive: true });
-    await writeFile(join(dir, filename), content);
+    await writeFile(join(dir, safeFile), content);
   }
 
   /**

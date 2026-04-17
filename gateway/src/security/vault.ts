@@ -5,7 +5,7 @@
  */
 
 import { randomBytes, createCipheriv, createDecipheriv, scryptSync } from 'crypto';
-import { readFile, writeFile, mkdir } from 'fs/promises';
+import { readFile, writeFile, mkdir, rename, chmod } from 'fs/promises';
 import { existsSync } from 'fs';
 import { join } from 'path';
 
@@ -159,6 +159,18 @@ export class Vault {
   private async save(): Promise<void> {
     if (!this.data) return;
     const filePath = join(this.vaultPath, 'vault.enc');
-    await writeFile(filePath, JSON.stringify(this.data, null, 2));
+    const tmpPath = filePath + '.tmp';
+    // Atomic write: write to tmp, then rename. Prevents corruption if the
+    // process crashes mid-write (the old vault file stays intact).
+    await writeFile(tmpPath, JSON.stringify(this.data, null, 2));
+    try {
+      // Tighten permissions on POSIX systems (0600 = owner read/write only).
+      if (process.platform !== 'win32') {
+        await chmod(tmpPath, 0o600);
+      }
+    } catch {
+      // chmod failures are non-fatal on filesystems that don't support it.
+    }
+    await rename(tmpPath, filePath);
   }
 }

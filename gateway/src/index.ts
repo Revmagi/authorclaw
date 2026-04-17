@@ -563,19 +563,25 @@ class AuthorClawGateway {
     // ── Phase 11: Static Dashboard ──
     const dashboardPath = join(ROOT_DIR, 'dashboard', 'dist');
     this.app.use(express.static(dashboardPath));
-    this.app.get('*', (_req, res) => {
-      const htmlFile = join(dashboardPath, 'index.html');
-      res.sendFile(htmlFile, (err) => {
-        if (err) res.status(200).json({ status: 'ok', message: 'AuthorClaw running. Dashboard HTML not found.' });
-      });
-    });
 
-    // JSON 404 handler — ensures unmatched API routes return JSON not HTML
+    // JSON 404 handler for API routes — MUST run before SPA fallback
+    // so unmatched /api/ requests get JSON errors instead of the dashboard HTML.
     this.app.use((req: any, res: any, next: any) => {
       if (req.path.startsWith('/api/')) {
         return res.status(404).json({ error: `Route not found: ${req.method} ${req.path}` });
       }
       next();
+    });
+
+    // SPA fallback — any non-API path serves the dashboard HTML
+    this.app.get('*', (req, res) => {
+      if (req.path.startsWith('/api/')) return; // already handled above
+      const htmlFile = join(dashboardPath, 'index.html');
+      res.sendFile(htmlFile, (err) => {
+        if (err && !res.headersSent) {
+          res.status(500).json({ status: 'error', message: 'AuthorClaw running but dashboard HTML not found.' });
+        }
+      });
     });
 
     // Global JSON error handler — ensures API errors never return HTML

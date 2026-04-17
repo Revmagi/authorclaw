@@ -1313,7 +1313,14 @@ export function createAPIRoutes(app: Application, gateway: any, rootDir?: string
     const { existsSync: ex } = await import('fs');
 
     let textContent = '';
-    const filename = req.file.originalname;
+    // Sanitize filename to prevent path traversal (strip path separators, .., null bytes)
+    const rawName = req.file.originalname || 'upload';
+    const filename = rawName
+      .replace(/[\x00-\x1f]/g, '')
+      .replace(/[\\/:*?"<>|]/g, '_')
+      .replace(/\.\.+/g, '_')
+      .replace(/^\.+/, '')
+      .slice(0, 200) || 'upload';
     const ext = filename.split('.').pop()?.toLowerCase();
 
     if (ext === 'txt' || ext === 'md') {
