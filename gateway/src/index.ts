@@ -45,6 +45,10 @@ import { OrchestratorService } from './services/orchestrator.js';
 import { KDPExporter } from './services/kdp-exporter.js';
 import { BetaReaderService } from './services/beta-reader.js';
 import { DialogueAuditor } from './services/dialogue-auditor.js';
+import { ManuscriptHubService } from './services/manuscript-hub.js';
+import { CoverTypographyService } from './services/cover-typography.js';
+import { ExternalToolsService } from './services/external-tools.js';
+import { TrackChangesService } from './services/track-changes.js';
 import { TelegramBridge } from './bridges/telegram.js';
 import { DiscordBridge } from './bridges/discord.js';
 import { createAPIRoutes } from './api/routes.js';
@@ -95,6 +99,10 @@ class AuthorClawGateway {
   private kdpExporter!: KDPExporter;
   private betaReader!: BetaReaderService;
   private dialogueAuditor!: DialogueAuditor;
+  private manuscriptHub!: ManuscriptHubService;
+  private coverTypography!: CoverTypographyService;
+  private externalTools!: ExternalToolsService;
+  private trackChanges!: TrackChangesService;
   private telegram?: TelegramBridge;
   private discord?: DiscordBridge;
 
@@ -318,7 +326,11 @@ class AuthorClawGateway {
     this.kdpExporter = new KDPExporter();
     this.betaReader = new BetaReaderService();
     this.dialogueAuditor = new DialogueAuditor();
-    console.log('  ✓ KDP exporter, beta reader, dialogue auditor ready');
+    this.manuscriptHub = new ManuscriptHubService();
+    this.coverTypography = new CoverTypographyService();
+    this.externalTools = new ExternalToolsService(ROOT_DIR);
+    this.trackChanges = new TrackChangesService();
+    console.log('  ✓ KDP exporter, beta reader, dialogue auditor, hub, cover typography, external tools, track-changes ready');
 
     // ── Phase 7: Heartbeat ──
     this.heartbeat = new HeartbeatService(this.config.get('heartbeat'), this.memory);
@@ -1081,6 +1093,10 @@ class AuthorClawGateway {
       kdpExporter: this.kdpExporter,
       betaReader: this.betaReader,
       dialogueAuditor: this.dialogueAuditor,
+      manuscriptHub: this.manuscriptHub,
+      coverTypography: this.coverTypography,
+      externalTools: this.externalTools,
+      trackChanges: this.trackChanges,
     };
   }
 

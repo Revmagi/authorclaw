@@ -3039,6 +3039,187 @@ ${sourceCode.substring(0, 15000)}
   });
 
   // ═══════════════════════════════════════════════════════════
+  // Track Changes — DOCX editor roundtrip
+  // ═══════════════════════════════════════════════════════════
+
+  // Upload an edited .docx; return the structured diff report.
+  app.post('/api/track-changes/parse', upload.single('file'), async (req: Request, res: Response) => {
+    const tc = services.trackChanges;
+    if (!tc) return res.status(503).json({ error: 'Track-changes service not initialized' });
+    if (!req.file) return res.status(400).json({ error: 'No file uploaded' });
+
+    const ext = '.' + (req.file.originalname.split('.').pop() || '').toLowerCase();
+    if (ext !== '.docx') {
+      return res.status(400).json({ error: 'Only .docx files are supported for track-changes parsing' });
+    }
+
+    try {
+      const report = tc.parseDocx(req.file.buffer);
+      // Cache the file on disk so the apply-decisions endpoint can reuse it.
+      const { mkdir: mkd, writeFile: wf } = await import('fs/promises');
+      const cacheDir = path.join(baseDir, 'workspace', 'tmp', 'track-changes');
+      await mkd(cacheDir, { recursive: true });
+      // Sanitize filename to prevent traversal.
+      const safeName = req.file.originalname
+        .replace(/[\x00-\x1f]/g, '')
+        .replace(/[\\/:*?"<>|]/g, '_')
+        .replace(/\.\.+/g, '_')
+        .slice(0, 200);
+      const cacheKey = `${Date.now()}-${safeName}`;
+      await wf(path.join(cacheDir, cacheKey), req.file.buffer);
+      res.json({ cacheKey, report });
+    } catch (err: any) {
+      res.status(500).json({ error: err?.message || 'Parse failed' });
+    }
+  });
+
+  // Apply accept/reject decisions to produce clean Markdown.
+  app.post('/api/track-changes/apply', async (req: Request, res: Response) => {
+    const tc = services.trackChanges;
+    if (!tc) return res.status(503).json({ error: 'Track-changes service not initialized' });
+
+    const { cacheKey, decisions } = req.body || {};
+    if (!cacheKey || !decisions || typeof decisions !== 'object') {
+      return res.status(400).json({ error: 'cacheKey (from /parse) and decisions ({ [changeId]: "accepted"|"rejected" }) required' });
+    }
+
+    // Validate cacheKey — must match the expected format and stay inside the tmp dir.
+    if (!/^[\d]+-[^\\/]+$/.test(cacheKey)) {
+      return res.status(400).json({ error: 'Invalid cacheKey' });
+    }
+
+    const { readFile: rf } = await import('fs/promises');
+    const { existsSync: ex } = await import('fs');
+    const cachePath = path.join(baseDir, 'workspace', 'tmp', 'track-changes', cacheKey);
+    if (!ex(cachePath)) return res.status(404).json({ error: 'Cached upload not found. Re-upload and try again.' });
+
+    try {
+      const buffer = await rf(cachePath);
+      const decisionMap = new Map<string, 'accepted' | 'rejected' | 'pending'>();
+      for (const [id, status] of Object.entries(decisions)) {
+        if (status === 'accepted' || status === 'rejected' || status === 'pending') {
+          decisionMap.set(id, status);
+        }
+      }
+      const markdown = tc.applyDecisions(buffer, decisionMap);
+      res.json({ markdown, charCount: markdown.length, wordCount: markdown.split(/\s+/).filter(Boolean).length });
+    } catch (err: any) {
+      res.status(500).json({ error: err?.message || 'Apply failed' });
+    }
+  });
+
+  // ═══════════════════════════════════════════════════════════
+  // External Tool Wrappers — sibling Python apps in ../Automations/
+  // ═══════════════════════════════════════════════════════════
+
+  app.post('/api/projects/:id/pacing-heatmap', async (req: Request, res: Response) => {
+    const tools = services.externalTools;
+    if (!tools) return res.status(503).json({ error: 'External tools not initialized' });
+
+    const engine = gateway.getProjectEngine?.();
+    const project = engine?.getProject(req.params.id);
+    if (!project) return res.status(404).json({ error: 'Project not found' });
+
+    const chapters = await gatherChapters(project);
+    if (chapters.length === 0) {
+      return res.status(400).json({ error: 'No completed chapters found.' });
+    }
+    const manuscript = chapters.map(c => `# Chapter ${c.number}: ${c.title}\n\n${c.text}`).join('\n\n');
+    const result = await tools.runManuscriptAutopsy(manuscript);
+    res.json(result);
+  });
+
+  app.post('/api/projects/:id/format-pro', async (req: Request, res: Response) => {
+    const tools = services.externalTools;
+    if (!tools) return res.status(503).json({ error: 'External tools not initialized' });
+
+    const engine = gateway.getProjectEngine?.();
+    const project = engine?.getProject(req.params.id);
+    if (!project) return res.status(404).json({ error: 'Project not found' });
+
+    const { outputFormat, trimSize, author } = req.body || {};
+    const fmt = outputFormat || 'docx';
+    if (!['docx', 'epub', 'pdf', 'md'].includes(fmt)) {
+      return res.status(400).json({ error: 'outputFormat must be docx|epub|pdf|md' });
+    }
+
+    // Compile the manuscript first so Format Pro has an input file.
+    const chapters = await gatherChapters(project);
+    if (chapters.length === 0) return res.status(400).json({ error: 'No completed chapters to format.' });
+
+    const { join: j, resolve: r } = await import('path');
+    const { mkdir: mkd, writeFile: wf } = await import('fs/promises');
+    const tmpDir = j(baseDir, 'workspace', 'tmp', 'format-input');
+    await mkd(tmpDir, { recursive: true });
+    const inputPath = j(tmpDir, `${project.id}.md`);
+    const manuscript = chapters.map(c => `# Chapter ${c.number}: ${c.title}\n\n${c.text}`).join('\n\n');
+    await wf(inputPath, manuscript, 'utf-8');
+
+    const result = await tools.runFormatPro({
+      manuscriptPath: r(inputPath),
+      outputFormat: fmt,
+      title: project.title,
+      author: author || 'Anonymous',
+      trimSize,
+    });
+    res.json(result);
+  });
+
+  // ═══════════════════════════════════════════════════════════
+  // Cover Typography — overlay title/author on an AI-generated PNG
+  // ═══════════════════════════════════════════════════════════
+
+  app.post('/api/covers/apply-typography', async (req: Request, res: Response) => {
+    const typo = services.coverTypography;
+    if (!typo) return res.status(503).json({ error: 'Cover typography service not initialized' });
+
+    const { imagePath, title, author, subtitle, seriesBadge, genre, titleColor, authorColor, width, height } = req.body || {};
+    if (!imagePath || !title || !author) {
+      return res.status(400).json({ error: 'imagePath, title, and author are required' });
+    }
+
+    // Harden against path traversal — imagePath must be inside workspace.
+    const { resolve } = await import('path');
+    const workspaceDir = path.join(baseDir, 'workspace');
+    const resolved = resolve(String(imagePath));
+    if (!resolved.startsWith(resolve(workspaceDir))) {
+      return res.status(400).json({ error: 'imagePath must be inside workspace/' });
+    }
+
+    try {
+      const result = await typo.apply({
+        imagePath: resolved, title, author, subtitle, seriesBadge, genre,
+        titleColor, authorColor, width, height,
+      });
+      if (!result.success) return res.status(500).json(result);
+      res.json(result);
+    } catch (err: any) {
+      res.status(500).json({ error: err?.message || 'Typography failed' });
+    }
+  });
+
+  // ═══════════════════════════════════════════════════════════
+  // Manuscript Hub — aggregated dashboard stats
+  // ═══════════════════════════════════════════════════════════
+
+  app.get('/api/hub', async (_req: Request, res: Response) => {
+    const hub = services.manuscriptHub;
+    const engine = gateway.getProjectEngine?.();
+    const activityLog = gateway.getActivityLog?.();
+    if (!hub || !engine || !activityLog) {
+      return res.status(503).json({ error: 'Manuscript hub services not initialized' });
+    }
+    try {
+      const projects = engine.listProjects();
+      const dailyWordGoal = services.config.get('autonomous.dailyWordGoal', 1000) || 1000;
+      const report = await hub.build(projects, activityLog, dailyWordGoal);
+      res.json(report);
+    } catch (err: any) {
+      res.status(500).json({ error: err?.message || 'Hub build failed' });
+    }
+  });
+
+  // ═══════════════════════════════════════════════════════════
   // Beta Reader + Dialogue Auditor
   // ═══════════════════════════════════════════════════════════
 
