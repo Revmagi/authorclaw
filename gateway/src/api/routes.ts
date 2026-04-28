@@ -612,9 +612,9 @@ export function createAPIRoutes(app: Application, gateway: any, rootDir?: string
     if (!engine) {
       return res.status(503).json({ error: 'Project engine not initialized' });
     }
-    const { title, description, personaId, config } = req.body;
+    const { title, description, personaId, config, preferredProvider } = req.body;
     if (!title || !description) {
-      return res.status(400).json({ error: 'title and description required' });
+      const result = engine.createPipeline(title, description, personaId, config, preferredProvider);
     }
     try {
       const result = engine.createPipeline(title, description, personaId, config);
