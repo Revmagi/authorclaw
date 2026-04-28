@@ -1994,7 +1994,8 @@ Description: ${description}`;
     title: string,
     description: string,
     personaId?: string,
-    config?: NovelPipelineConfig
+    config?: NovelPipelineConfig,
+    preferredProvider?: string
   ): { pipelineId: string; projects: Project[] } {
     const pipelineId = `pipeline-${Date.now().toString(36)}-${Math.random().toString(36).substring(2, 6)}`;
     const phases: Array<{ type: ProjectType; label: string; phaseNum: number }> = [
@@ -2018,6 +2019,7 @@ Description: ${description}`;
       project.pipelineId = pipelineId;
       project.pipelinePhase = phase.phaseNum;
       if (personaId) project.personaId = personaId;
+      if (preferredProvider) (project as any).preferredProvider = preferredProvider;
       projects.push(project);
     }
 
