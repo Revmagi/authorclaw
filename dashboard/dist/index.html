@@ -453,6 +453,7 @@ textarea { resize: vertical; min-height: 60px; }
 .step-dot.completed { background: var(--success); }
 .step-dot.skipped { background: var(--muted); }
 .step-dot.failed { background: var(--danger); }
+.step-dot.waiting_for_input { background: var(--warn); animation: hb-pulse 1.5s infinite; }
 .step-output { margin-top: 8px; padding: 10px; background: var(--bg); border: 1px solid var(--border); border-radius: 6px; font-size: 12px; color: #bdc3c7; white-space: pre-wrap; max-height: 200px; overflow-y: auto; display: none; }
 .step-output.open { display: block; }
 
@@ -1813,14 +1814,33 @@ function openProjectDetail(id) {
   var stepsHtml = '';
   if (project.steps && project.steps.length > 0) {
     project.steps.forEach(function(s, i) {
+      var stepStatusLabel = s.status === 'waiting_for_input' ? '⏸ Needs your input' : esc(s.status);
+      var errorHtml = '';
+      if (s.status === 'failed') {
+        errorHtml =
+          '<div style="margin-top:6px;padding:8px 10px;background:rgba(239,68,68,0.1);border-left:3px solid var(--danger);border-radius:4px;font-size:12px;">' +
+            '<div style="color:var(--danger);font-weight:600;margin-bottom:4px;">⚠ Step failed</div>' +
+            '<div style="color:var(--muted);margin-bottom:6px;">' + (s.error ? esc(s.error) : 'Unknown error — check gateway logs') + '</div>' +
+            '<button class="small btn-retry-step" data-project="' + esc(id) + '" data-step="' + esc(s.id) + '" style="font-size:11px;background:var(--warn);color:#fff;">↻ Retry this step</button>' +
+          '</div>';
+      }
+      if (s.status === 'waiting_for_input') {
+        errorHtml =
+          '<div style="margin-top:6px;padding:8px 10px;background:rgba(245,158,11,0.1);border-left:3px solid var(--warn);border-radius:4px;font-size:12px;">' +
+            '<div style="color:var(--warn);font-weight:600;margin-bottom:4px;">❓ AuthorClaw needs your input</div>' +
+            '<div style="color:var(--text);margin-bottom:6px;">' + (s.question ? esc(s.question) : 'Check Telegram for the question.') + '</div>' +
+            '<div style="color:var(--muted);font-size:11px;">Reply via Telegram, then resume the project.</div>' +
+          '</div>';
+      }
       stepsHtml +=
         '<div class="step-item" data-step-idx="' + i + '">' +
           '<span class="step-dot ' + esc(s.status) + '"></span>' +
           '<div style="flex:1;">' +
             '<div>' + esc(s.label || s.name || 'Step ' + (i+1)) + '</div>' +
-            '<div style="font-size:11px;color:var(--muted);">' + esc(s.status) + (s.error ? ' - ' + esc(s.error.slice(0, 80)) : '') + '</div>' +
+            '<div style="font-size:11px;color:var(--muted);">' + stepStatusLabel + '</div>' +
+            errorHtml +
           '</div>' +
-          '<span class="badge badge-' + esc(s.status) + '" style="font-size:10px;">' + esc(s.status) + '</span>' +
+          '<span class="badge badge-' + esc(s.status === 'waiting_for_input' ? 'paused' : s.status) + '" style="font-size:10px;">' + (s.status === 'waiting_for_input' ? 'waiting' : esc(s.status)) + '</span>' +
         '</div>' +
         '<div class="step-output" id="stepOutput' + i + '">' + esc(s.output || s.result || 'No output available.') + '</div>';
     });
@@ -1972,6 +1992,42 @@ function openProjectDetail(id) {
       var idx = item.getAttribute('data-step-idx');
       var out = document.getElementById('stepOutput' + idx);
       if (out) out.classList.toggle('open');
+    });
+  });
+
+  // Wire retry buttons on failed steps
+  detail.querySelectorAll('.btn-retry-step').forEach(function(btn) {
+    btn.addEventListener('click', function(e) {
+      e.stopPropagation(); // prevent step output toggling
+      var projectId = btn.getAttribute('data-project');
+      var stepId = btn.getAttribute('data-step');
+      btn.textContent = 'Retrying...';
+      btn.disabled = true;
+      api('POST', '/api/projects/' + projectId + '/retry/' + stepId).then(function() {
+        showToast('Step reset — re-running...', 'success');
+        loadProjects();
+        // Auto-execute from this point
+        api('POST', '/api/projects/' + projectId + '/auto-execute').then(function(result) {
+          var completed = (result.results || []).filter(function(r) { return r.success; }).length;
+          showToast('Retry done! ' + completed + ' step(s) completed.', 'success');
+          loadProjects();
+          if (currentDetailProject === projectId) openProjectDetail(projectId);
+        }).catch(function(err) {
+          showToast('Execution error: ' + err.message, 'error');
+          loadProjects();
+          if (currentDetailProject === projectId) openProjectDetail(projectId);
+        });
+        // Poll for progress
+        var pollId = setInterval(function() {
+          loadProjects();
+          if (currentDetailProject === projectId) openProjectDetail(projectId);
+        }, 8000);
+        setTimeout(function() { clearInterval(pollId); }, 300000);
+      }).catch(function(e) {
+        showToast('Retry failed: ' + e.message, 'error');
+        btn.textContent = '↻ Retry this step';
+        btn.disabled = false;
+      });
     });
   });
 
@@ -3413,3 +3469,4 @@ startPolling();
 </script>
 </body>
 </html>
+
