@@ -1141,6 +1141,18 @@ export function createAPIRoutes(app: Application, gateway: any, rootDir?: string
     res.json({ nextStep, project: engine.getProject(req.params.id) });
   });
 
+  app.post('/api/projects/:id/retry/:stepId', (req: Request, res: Response) => {
+  const engine = gateway.getProjectEngine?.();
+  if (!engine) return res.status(503).json({ error: 'Project engine not initialized' });
+
+  const step = engine.retryStep(req.params.id, req.params.stepId);
+  if (!step) return res.status(404).json({ error: 'Step not found' });
+
+  // Auto-execute the retried step immediately
+  const project = engine.getProject(req.params.id);
+  res.json({ step, project });
+  });
+  
   app.post('/api/projects/:id/pause', (req: Request, res: Response) => {
     const engine = gateway.getProjectEngine?.();
     if (!engine) {
