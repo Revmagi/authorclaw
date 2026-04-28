@@ -1654,6 +1654,27 @@ Description: ${description}`;
   }
 
   /**
+ * Reset a failed or stuck step back to pending so it can be re-run.
+ */
+retryStep(projectId: string, stepId: string): ProjectStep | null {
+  const project = this.projects.get(projectId);
+  if (!project) return null;
+
+  const step = project.steps.find(s => s.id === stepId);
+  if (step) {
+    step.status = 'pending';
+    delete (step as any).error;  // clear the old error message
+  }
+
+  // Make sure project itself is not stuck as 'failed'
+  if (project.status === 'failed') project.status = 'active';
+  project.updatedAt = new Date().toISOString();
+  this.persistState();
+  return step || null;
+}
+
+  
+  /**
    * Skip a step
    */
   skipStep(projectId: string, stepId: string): ProjectStep | null {
